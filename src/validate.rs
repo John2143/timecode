@@ -1,7 +1,7 @@
 use crate::{
     framerates::*,
     parser::{Seperator, UnvalidatedTC},
-    Framerate, FramerateValidation, Timecode, TimecodeValidationError, TimecodeValidationWarning,
+    Framerate, ValidateableFramerate, Timecode, TimecodeValidationError, TimecodeValidationWarning,
 };
 
 type FramerateValidationResult = Result<(), TimecodeValidationError>;
@@ -23,9 +23,22 @@ impl WarningContainer for () {
 impl UnvalidatedTC {
     ///Take an invalidated timecode and check that it is valid when interpreted as the framerate `FR`
     ///
-    ///This checks that minutes and seconds are valid in
-    pub fn validate<T: FramerateValidation>(&self) -> Result<Timecode<T>, TimecodeValidationError> {
-        T::validate(&self, &mut ()).map(|_| {
+    ///```
+    ///# use timecode::parser::UnvalidatedTC;
+    ///use timecode::framerates::NDF30;
+    ///
+    ///let raw_tc = timecode::unvalidated("01:02:00:25").expect("could not parse string into framerate");
+    ///
+    ///let tc = raw_tc.validate::<NDF30>().unwrap();
+    ///
+    ///assert_eq!(tc.to_string(), "01:02:00:25");
+    ///assert_eq!(tc.h(), 1);
+    ///assert_eq!(tc.m(), 2);
+    ///assert_eq!(tc.s(), 0);
+    ///assert_eq!(tc.f(), 25);
+    ///```
+    pub fn validate<FR: ValidateableFramerate>(&self) -> Result<Timecode<FR>, TimecodeValidationError> {
+        FR::validate(&self, &mut ()).map(|_| {
             let UnvalidatedTC { h, m, s, f, .. } = *self;
 
             Timecode {
@@ -38,11 +51,29 @@ impl UnvalidatedTC {
         })
     }
 
-    pub fn validate_with_warnings<T: FramerateValidation>(
+    ///This validates the timecode while returning warnings about potentially incorrect timecodes.
+    ///
+    ///In this example, `01:02:00:25` is valid for both formats, but the seperator should be `;`
+    ///when the framerate is drop frame.
+    ///
+    ///NOTE: this allocates only if there is a timecode warning, otherwise it is as cheap as
+    ///validate
+    ///```
+    ///# use timecode::{framerates::*, };
+    ///let raw_tc = timecode::unvalidated("01:02:00:25").unwrap();
+    ///
+    ///let (tc, warnings) = raw_tc.validate_with_warnings::<NDF30>().unwrap();
+    ///assert!(warnings.is_empty());
+    ///
+    ///let (tc, warnings) = raw_tc.validate_with_warnings::<DF2997>().unwrap();
+    ///assert_eq!(tc.to_string(), "01:02:00;25");
+    ///assert!(warnings.contains(&timecode::TimecodeValidationWarning::MismatchSep));
+    ///```
+    pub fn validate_with_warnings<FR: ValidateableFramerate>(
         &self,
-    ) -> Result<(Timecode<T>, Vec<TimecodeValidationWarning>), TimecodeValidationError> {
+    ) -> Result<(Timecode<FR>, Vec<TimecodeValidationWarning>), TimecodeValidationError> {
         let mut warnings = vec![];
-        T::validate(&self, &mut warnings).map(|_| {
+        FR::validate(&self, &mut warnings).map(|_| {
             let UnvalidatedTC { h, m, s, f, .. } = *self;
 
             (
@@ -64,7 +95,21 @@ impl UnvalidatedTC {
     ///
     ///The unvalidated timecode must hold all the SMPTE invariants. The timecode seperator does not
     ///have to match.
-    pub unsafe fn validate_unchecked<T: Framerate>(&self) -> Timecode<T> {
+    ///
+    ///```
+    ///# use timecode::framerates::NDF30;
+    ///# use timecode::parser;
+    ///# use std::convert::TryInto;
+    ///let raw_tc = parser::UnvalidatedTC {
+    ///    h: 1, m: 2, s: 0, f: 25,
+    ///    seperator: ';'.try_into().unwrap()
+    ///};
+    ///
+    ///let tc = unsafe { raw_tc.validate_unchecked::<NDF30>() };
+    ///
+    ///assert_eq!(tc.to_string(), "01:02:00:25");
+    ///```
+    pub unsafe fn validate_unchecked<FR: Framerate>(&self) -> Timecode<FR> {
         let UnvalidatedTC { h, m, s, f, .. } = *self;
 
         Timecode {
@@ -106,7 +151,7 @@ fn helper_v_drop_frame(m: u8, s: u8, f: u8) -> Result<(), TimecodeValidationErro
     Ok(())
 }
 
-impl FramerateValidation for NDF30 {
+impl ValidateableFramerate for NDF30 {
     fn validate<T: WarningContainer>(
         input_tc: &UnvalidatedTC,
         warnings: &mut T,
@@ -128,7 +173,7 @@ impl FramerateValidation for NDF30 {
     }
 }
 
-impl FramerateValidation for DF2997 {
+impl ValidateableFramerate for DF2997 {
     fn validate<T: WarningContainer>(
         input_tc: &UnvalidatedTC,
         warnings: &mut T,
@@ -151,7 +196,7 @@ impl FramerateValidation for DF2997 {
     }
 }
 
-impl FramerateValidation for NDF2398 {
+impl ValidateableFramerate for NDF2398 {
     fn validate<T: WarningContainer>(
         input_tc: &UnvalidatedTC,
         warnings: &mut T,

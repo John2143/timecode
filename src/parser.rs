@@ -36,6 +36,8 @@ impl std::convert::TryFrom<char> for Seperator {
     }
 }
 
+///This is the timecode produced directly after being parsed. It has no knowledge
+///about what the target framerate is, and simply contains the data found in the string.
 #[derive(Debug, PartialEq)]
 pub struct UnvalidatedTC {
     pub h: u8,

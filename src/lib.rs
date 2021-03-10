@@ -1,24 +1,35 @@
 #![allow(dead_code)]
-//!
+//!This is a correct implementation of SMPTE timecodes used at
+//![`Discovery`](https://github.com/discoveryinc-cs)
 //!
 //!# Quickstart
+//!
+//!The fastest way to get started is to parse a timecode directly with [`str::parse`](std::primitive::str::parse).
 //!
 //!```
 //!use timecode::{framerates::*, Timecode};
 //!
-//!//The fastest way to get started is to parse a timecode directly with FromStr.
-//!let tc: Timecode<NDF30> = "01:02:00:25".parse().unwrap();
+//!let tc: Timecode<NDF30> = "01:02:00:25".parse().expect("Couldn't convert to NDF30 timecode");
 //!
-//!assert_eq!(tc.to_string(), "01:02:00:25");
 //!assert_eq!(tc.h(), 1);
 //!assert_eq!(tc.m(), 2);
 //!assert_eq!(tc.s(), 0);
 //!assert_eq!(tc.f(), 25);
+//!assert_eq!(tc.to_string(), "01:02:00:25");
 //!```
 //!
+//!If you need more control over the initial parsing, [`unvalidated`] can produce an intermediate
+//![`UnvalidatedTC`](parser::UnvalidatedTC) which can be used to create timecodes at multiple
+//!different framerates.
+//!
+//!To access the parsed [`nom`] result directly, see [`parser::timecode_nom`]. [`unvalidated`] is a
+//!thin wrapper around [`parser::timecode_nom`] which fails on remaining input and hides the
+//!parsing error.
+//!
+//!
 //!```
-//!use timecode::{framerates::*, };
-//!//Parse a string into an Option<UnvalidatedTimecode>
+//!use timecode::framerates::*;
+//!//Parse a string into an Option<UnvalidatedTC>
 //!let raw_tc = timecode::unvalidated("01:02:00:25").unwrap();
 //!
 //!//Call validate with your desired framerate to get a Result<Timecode>
@@ -30,19 +41,9 @@
 //!assert_eq!(tc.s(), 0);
 //!assert_eq!(tc.f(), 25);
 //!
-//!//You can also use the validate_with_warnings function to get warnings, if there are any
-//!let (tc, warnings) = raw_tc.validate_with_warnings::<NDF30>().unwrap();
-//!assert!(warnings.is_empty());
-//!
 //!//01:02:00:25 is not a valid 2398 timecode.
 //!let invalid_tc = raw_tc.validate::<NDF2398>();
 //!assert!(invalid_tc.is_err());
-//!
-//!//01:02:00:25 is a valid 29.97 timecode, but it doesn't use the standard ';' seperator.
-//!let (tc, warnings) = raw_tc.validate_with_warnings::<DF2997>().unwrap();
-//!
-//!assert_eq!(tc.to_string(), "01:02:00;25");
-//!assert!(warnings.contains(&timecode::TimecodeValidationWarning::MismatchSep));
 //!
 //!//Dropframe invariants are also checked.
 //!let invalid_tc = timecode::unvalidated("01:02:00;01").unwrap().validate::<DF2997>();
@@ -99,10 +100,10 @@ pub enum TimecodeValidationWarning {
     MismatchSep,
 }
 
-pub trait FramerateValidation: Framerate {
+pub trait ValidateableFramerate: Framerate {
     fn validate<T: validate::WarningContainer>(
         input_tc: &UnvalidatedTC,
-        warns: &mut T,
+        warnings: &mut T,
     ) -> Result<(), TimecodeValidationError>;
 }
 
@@ -112,6 +113,11 @@ pub mod framerates {
     framerate_impl! {DF2997 = "29.97", ';'}
 }
 
+#[derive(Copy, Debug, Eq, PartialEq, Clone)]
+#[repr(transparent)]
+pub struct Frames(usize);
+
+#[derive(Copy, Debug, Eq, PartialEq, Clone)]
 pub struct Timecode<FR> {
     h: u8,
     m: u8,
@@ -150,12 +156,67 @@ impl<T> Timecode<T> {
     }
 }
 
-impl<T: FramerateValidation> std::str::FromStr for Timecode<T> {
+impl<T: ValidateableFramerate> std::str::FromStr for Timecode<T> {
     type Err = TimecodeValidationError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let tc = unvalidated(s).ok_or(TimecodeValidationError::Unparsed)?;
 
         tc.validate()
+    }
+}
+
+impl<T> std::ops::Add<Timecode<T>> for Timecode<T> {
+    type Output = Timecode<T>;
+
+    fn add(self, rhs: Timecode<T>) -> Self::Output {
+        Self {
+            h: self.h + rhs.h,
+            m: self.m + rhs.m,
+            s: self.s + rhs.s,
+            f: self.f + rhs.f,
+            framerate: self.framerate,
+        };
+
+        todo!()
+    }
+}
+
+impl<T: Clone> std::ops::Add<Frames> for Timecode<T> {
+    type Output = Timecode<T>;
+
+    fn add(self, rhs: Frames) -> Self::Output {
+        let mut new = self.clone();
+
+        new.f += rhs.0 as u8;
+
+        //new
+
+        todo!()
+    }
+}
+
+impl std::ops::Add<Frames> for Frames {
+    type Output = Frames;
+
+    fn add(self, rhs: Frames) -> Self::Output {
+        Self(self.0 + rhs.0)
+    }
+}
+
+#[cfg(test)]
+mod add_test {
+    use super::*;
+    use crate::framerates::NDF30;
+
+    #[test]
+    fn add() {
+        let t1: Timecode<NDF30> = "01:10:00:12".parse().unwrap();
+        let t2: Timecode<NDF30> = "00:00:00:01".parse().unwrap();
+
+        let t_res = t1 + t2;
+
+        assert_eq!(t_res.to_string(), "01:10:00:13");
+
     }
 }
