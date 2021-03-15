@@ -142,6 +142,14 @@ fn helper_v_sep<FR: Framerate>(seperator: Seperator) -> Result<(), TimecodeValid
     Ok(())
 }
 
+fn helper_v_max_frame<FR: Framerate>(f: u8) -> Result<(), TimecodeValidationError> {
+    if FR::max_frame() <= f {
+        Err(TimecodeValidationError::InvalidFrames)
+    } else {
+        Ok(())
+    }
+}
+
 ///drop frame rules are the same regardless of framerate.
 fn helper_v_drop_frame(m: u8, s: u8, f: u8) -> Result<(), TimecodeValidationError> {
     if m % 10 != 0 && s == 0 && f < 2 {
@@ -164,10 +172,7 @@ impl ValidateableFramerate for NDF30 {
         helper_v_sep::<Self>(seperator)
             .err()
             .map(|e| warnings.add_warning(e));
-
-        if f >= 30 {
-            return Err(TimecodeValidationError::InvalidFrames);
-        }
+        helper_v_max_frame::<Self>(f)?;
 
         Ok(())
     }
@@ -187,10 +192,7 @@ impl ValidateableFramerate for DF2997 {
             .err()
             .map(|e| warnings.add_warning(e));
         helper_v_drop_frame(m, s, f)?;
-
-        if f >= 30 {
-            return Err(TimecodeValidationError::InvalidFrames);
-        }
+        helper_v_max_frame::<Self>(f)?;
 
         Ok(())
     }
@@ -209,10 +211,7 @@ impl ValidateableFramerate for NDF2398 {
         helper_v_sep::<Self>(seperator)
             .err()
             .map(|e| warnings.add_warning(e));
-
-        if f >= 24 {
-            return Err(TimecodeValidationError::InvalidFrames);
-        }
+        helper_v_max_frame::<Self>(f)?;
 
         Ok(())
     }

@@ -60,7 +60,8 @@ pub mod validate;
 pub use parser::unvalidated;
 
 macro_rules! framerate_impl {
-    ($i: ident = $rep: expr, $sep: expr) => {
+    ($i: ident = $rep: expr, $sep: expr, $max_frame: expr) => {
+        #[derive(Clone, Copy, Debug)]
         pub struct $i;
 
         impl crate::Framerate for $i {
@@ -72,13 +73,25 @@ macro_rules! framerate_impl {
             fn to_sep() -> char {
                 $sep
             }
+
+            fn max_frame() -> u8 {
+                $max_frame
+            }
         }
     };
 }
 
-pub trait Framerate {
+pub mod framerates {
+    framerate_impl! {NDF30 = "30", ':', 30}
+    framerate_impl! {NDF2398 = "23.98", ':', 24}
+    framerate_impl! {DF2997 = "29.97", ';', 30}
+}
+
+
+pub trait Framerate: Copy {
     fn to_str() -> &'static str;
     fn to_sep() -> char;
+    fn max_frame() -> u8;
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -107,15 +120,9 @@ pub trait ValidateableFramerate: Framerate {
     ) -> Result<(), TimecodeValidationError>;
 }
 
-pub mod framerates {
-    framerate_impl! {NDF30 = "30", ':'}
-    framerate_impl! {NDF2398 = "23.98", ':'}
-    framerate_impl! {DF2997 = "29.97", ';'}
-}
-
 #[derive(Copy, Debug, Eq, PartialEq, Clone)]
 #[repr(transparent)]
-pub struct Frames(usize);
+pub struct Frames(pub usize);
 
 #[derive(Copy, Debug, Eq, PartialEq, Clone)]
 pub struct Timecode<FR> {
@@ -126,7 +133,7 @@ pub struct Timecode<FR> {
     framerate: PhantomData<FR>,
 }
 
-impl<T: Framerate> Display for Timecode<T> {
+impl<FR: Framerate> Display for Timecode<FR> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         write!(
             f,
@@ -134,14 +141,14 @@ impl<T: Framerate> Display for Timecode<T> {
             self.h,
             self.m,
             self.s,
-            T::to_sep(),
+            FR::to_sep(),
             self.f
         )?;
         Ok(())
     }
 }
 
-impl<T> Timecode<T> {
+impl<FR> Timecode<FR> {
     pub fn h(&self) -> u8 {
         self.h
     }
@@ -156,7 +163,7 @@ impl<T> Timecode<T> {
     }
 }
 
-impl<T: ValidateableFramerate> std::str::FromStr for Timecode<T> {
+impl<FR: ValidateableFramerate> std::str::FromStr for Timecode<FR> {
     type Err = TimecodeValidationError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -166,33 +173,28 @@ impl<T: ValidateableFramerate> std::str::FromStr for Timecode<T> {
     }
 }
 
-impl<T> std::ops::Add<Timecode<T>> for Timecode<T> {
-    type Output = Timecode<T>;
+pub trait ToFrames {
+    fn to_frames(&self) -> Frames;
+}
 
-    fn add(self, rhs: Timecode<T>) -> Self::Output {
-        Self {
-            h: self.h + rhs.h,
-            m: self.m + rhs.m,
-            s: self.s + rhs.s,
-            f: self.f + rhs.f,
-            framerate: self.framerate,
-        };
-
-        todo!()
+impl<FR> ToFrames for Timecode<FR> {
+    fn to_frames(&self) -> Frames {
+        Frames(0)
     }
 }
 
-impl<T: Clone> std::ops::Add<Frames> for Timecode<T> {
-    type Output = Timecode<T>;
+impl ToFrames for Frames {
+    fn to_frames(&self) -> Frames {
+        *self
+    }
+}
 
-    fn add(self, rhs: Frames) -> Self::Output {
-        let mut new = self.clone();
 
-        new.f += rhs.0 as u8;
+impl<T: ToFrames, FR> std::ops::Add<T> for Timecode<FR> {
+    type Output = Timecode<FR>;
 
-        //new
-
-        todo!()
+    fn add(self, rhs: T) -> Self::Output {
+        self + rhs.to_frames()
     }
 }
 
@@ -210,13 +212,23 @@ mod add_test {
     use crate::framerates::NDF30;
 
     #[test]
-    fn add() {
+    fn add_compiles() {
         let t1: Timecode<NDF30> = "01:10:00:12".parse().unwrap();
         let t2: Timecode<NDF30> = "00:00:00:01".parse().unwrap();
 
-        let t_res = t1 + t2;
+        let _ = t1 + t2;
+    }
 
-        assert_eq!(t_res.to_string(), "01:10:00:13");
+    #[test]
+    fn add_frames_compiles() {
+        let t1: Timecode<NDF30> = "01:10:00:12".parse().unwrap();
 
+        let _ = t1 + Frames(10);
+        let _ = t1 + Frames(10);
+    }
+
+    #[test]
+    fn add_frames_frames_compiles() {
+        let _ = Frames(20) + Frames(10);
     }
 }

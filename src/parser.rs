@@ -4,7 +4,6 @@ use nom::{
     bytes::complete::take_while_m_n,
     character::complete::{char, satisfy},
     combinator::map_res,
-    complete::tag,
     sequence::{pair, tuple},
     IResult,
 };
