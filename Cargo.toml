@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 nom = "6.1.2"
-smallstr = "0.2.0"
+#smallstr = "0.2.0"
 
 [dev-dependencies]
 smallstr = "0.2.0"

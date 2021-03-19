@@ -18,4 +18,6 @@ fn add_single_frame<FR: ValidateableFramerate>(input: &str, expected: &str) {
 fn test_add() {
     add_single_frame::<NDF30>("00:01:02:00", "00:01:02:01");
     add_single_frame::<NDF30>("00:01:02:29", "00:01:03:00");
+    add_single_frame::<NDF30>("00:01:59:29", "00:02:00:00");
+    add_single_frame::<NDF30>("00:59:59:29", "01:00:00:00");
 }

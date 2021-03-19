@@ -60,8 +60,8 @@ pub mod validate;
 pub use parser::unvalidated;
 
 macro_rules! framerate_impl {
-    ($i: ident = $rep: expr, $sep: expr, $max_frame: expr) => {
-        #[derive(Clone, Copy, Debug)]
+    ($i: ident = $rep: expr, $sep: expr, $max_frame: expr, $is_dropframe: expr) => {
+        #[derive(Clone, Copy, Debug, Eq, PartialEq)]
         pub struct $i;
 
         impl crate::Framerate for $i {
@@ -77,14 +77,18 @@ macro_rules! framerate_impl {
             fn max_frame() -> u8 {
                 $max_frame
             }
+
+            fn is_dropframe() -> bool {
+                $is_dropframe
+            }
         }
     };
 }
 
 pub mod framerates {
-    framerate_impl! {NDF30 = "30", ':', 30}
-    framerate_impl! {NDF2398 = "23.98", ':', 24}
-    framerate_impl! {DF2997 = "29.97", ';', 30}
+    framerate_impl! {NDF30 = "30", ':', 30, false}
+    framerate_impl! {NDF2398 = "23.98", ':', 24, false}
+    framerate_impl! {DF2997 = "29.97", ';', 30, true}
 }
 
 
@@ -92,6 +96,7 @@ pub trait Framerate: Copy {
     fn to_str() -> &'static str;
     fn to_sep() -> char;
     fn max_frame() -> u8;
+    fn is_dropframe() -> bool;
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -174,27 +179,74 @@ impl<FR: ValidateableFramerate> std::str::FromStr for Timecode<FR> {
 }
 
 pub trait ToFrames {
-    fn to_frames(&self) -> Frames;
+    fn to_frame_count(&self) -> usize;
 }
 
-impl<FR> ToFrames for Timecode<FR> {
-    fn to_frames(&self) -> Frames {
-        Frames(0)
+//pub trait FromFrames {
+    //fn from_frames(&Frames) -> Self;
+//}
+
+impl<FR: Framerate> Timecode<FR> {
+    fn from_frames(&Frames(mut frame_count): &Frames) -> Self {
+        let max_frame = FR::max_frame() as usize;
+        if FR::is_dropframe() {
+            todo!()
+        } else {
+            let f = (frame_count % max_frame) as u8;
+            frame_count /= max_frame;
+            let s = (frame_count % 60) as u8;
+            frame_count /= 60;
+            let m = (frame_count % 60) as u8;
+            frame_count /= 60;
+            let h = frame_count as u8;
+
+            Timecode {
+                f, s, m, h,
+                framerate: std::marker::PhantomData,
+            }
+        }
+    }
+}
+impl<FR: Framerate> ToFrames for Timecode<FR> {
+    fn to_frame_count(&self) -> usize {
+        let max_frame = FR::max_frame() as usize;
+        if FR::is_dropframe() {
+            //1 hr = 60 minutes = 2 * (60-10) frames skipped
+            //let mut frame_count = 0usize;
+            //frame_count += self.h as usize * 60 * 60 * max_frame - 2 * (60 - 10);
+            //frame_count += self.f as usize;
+            //if self.m % 10 != 0 && self.s == 0 && self.f != 0 {
+                //frame_count -= 2;
+            //}
+
+            //frame_count;
+
+            todo!()
+        } else {
+            let mut frame_count = 0usize;
+            frame_count += self.h as usize * 60 * 60 * max_frame;
+            frame_count += self.m as usize * 60 * max_frame;
+            frame_count += self.s as usize * max_frame;
+            frame_count += self.f as usize;
+
+            frame_count
+        }
     }
 }
 
 impl ToFrames for Frames {
-    fn to_frames(&self) -> Frames {
-        *self
+    fn to_frame_count(&self) -> usize {
+        self.0
     }
 }
 
 
-impl<T: ToFrames, FR> std::ops::Add<T> for Timecode<FR> {
+impl<T: ToFrames, FR: Framerate> std::ops::Add<T> for Timecode<FR> {
     type Output = Timecode<FR>;
 
     fn add(self, rhs: T) -> Self::Output {
-        self + rhs.to_frames()
+        let frames = Frames(self.to_frame_count()) + Frames(rhs.to_frame_count());
+        Timecode::from_frames(&frames)
     }
 }
 
@@ -230,5 +282,23 @@ mod add_test {
     #[test]
     fn add_frames_frames_compiles() {
         let _ = Frames(20) + Frames(10);
+    }
+
+    #[test]
+    fn to_frames() {
+        let t1: Timecode<NDF30> = "00:00:01:12".parse().unwrap();
+
+        let f = t1.to_frame_count();
+
+        assert_eq!(f, 12 + 30);
+    }
+
+    #[test]
+    fn add_tcs() {
+        let t1: Timecode<NDF30> = "01:10:00:12".parse().unwrap();
+        let t2: Timecode<NDF30> = "01:01:01:01".parse().unwrap();
+        let t3: Timecode<NDF30> = "02:11:01:13".parse().unwrap();
+
+        assert_eq!(t1 + t2, t3);
     }
 }
