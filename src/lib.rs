@@ -60,11 +60,14 @@ pub mod validate;
 pub use parser::unvalidated;
 
 macro_rules! framerate_impl {
-    ($i: ident = $rep: expr, $sep: expr, $max_frame: expr, $is_dropframe: expr) => {
+    ($i: ident = $rep: expr, $sep: expr, $max_frame: expr, df = $is_dropframe: expr, $fr_num: expr ; $fr_den: expr, ) => {
         #[derive(Clone, Copy, Debug, Eq, PartialEq)]
         pub struct $i;
 
         impl crate::Framerate for $i {
+            const FR_NUMERATOR: usize = $fr_num;
+            const FR_DENOMINATOR: usize = $fr_den;
+
             #[inline]
             fn to_str() -> &'static str {
                 $rep
@@ -81,22 +84,42 @@ macro_rules! framerate_impl {
             fn is_dropframe() -> bool {
                 $is_dropframe
             }
+
+            fn framerate_ratio() -> f32 {
+                Self::FR_NUMERATOR as f32 / Self::FR_DENOMINATOR as f32
+            }
         }
     };
 }
 
 pub mod framerates {
-    framerate_impl! {NDF30 = "30", ':', 30, false}
-    framerate_impl! {NDF2398 = "23.98", ':', 24, false}
-    framerate_impl! {DF2997 = "29.97", ';', 30, true}
+    framerate_impl! {
+        NDF30 = "30",
+        ':', 30, df = false,
+        30000 ; 1000,
+    }
+    framerate_impl! {
+        NDF2398 = "23.98",
+        ':', 24, df = false,
+        24000 ; 1000,
+
+    }
+    framerate_impl! {
+        DF2997 = "29.97",
+        ';', 30, df = true,
+        30000 ; 1001,
+    }
 }
 
 
 pub trait Framerate: Copy {
+    const FR_NUMERATOR: usize;
+    const FR_DENOMINATOR: usize;
     fn to_str() -> &'static str;
     fn to_sep() -> char;
     fn max_frame() -> u8;
     fn is_dropframe() -> bool;
+    fn framerate_ratio() -> f32;
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -118,6 +141,8 @@ pub enum TimecodeValidationWarning {
     MismatchSep,
 }
 
+///Used internally when calling [`UnvalidatedTC::validate`]. If `Ok(())` is returned, the
+///unvalidated timecode will be directly copied into a new [`Timecode`]
 pub trait ValidateableFramerate: Framerate {
     fn validate<T: validate::WarningContainer>(
         input_tc: &UnvalidatedTC,
@@ -208,29 +233,26 @@ impl<FR: Framerate> Timecode<FR> {
     }
 }
 impl<FR: Framerate> ToFrames for Timecode<FR> {
+    //try to inline this since FR::is_dropframe is going to be a constant.
+    #[inline]
     fn to_frame_count(&self) -> usize {
         let max_frame = FR::max_frame() as usize;
+        let mut frame_count = 0usize;
+        frame_count += self.h as usize * 60 * 60 * max_frame;
+        frame_count += self.m as usize * 60 * max_frame;
+        frame_count += self.s as usize * max_frame;
+        frame_count += self.f as usize;
+
         if FR::is_dropframe() {
-            //1 hr = 60 minutes = 2 * (60-10) frames skipped
-            //let mut frame_count = 0usize;
-            //frame_count += self.h as usize * 60 * 60 * max_frame - 2 * (60 - 10);
-            //frame_count += self.f as usize;
-            //if self.m % 10 != 0 && self.s == 0 && self.f != 0 {
-                //frame_count -= 2;
-            //}
-
-            //frame_count;
-
-            todo!()
-        } else {
-            let mut frame_count = 0usize;
-            frame_count += self.h as usize * 60 * 60 * max_frame;
-            frame_count += self.m as usize * 60 * max_frame;
-            frame_count += self.s as usize * max_frame;
-            frame_count += self.f as usize;
-
-            frame_count
+            let minute_count = self.h as usize * 60 + self.m as usize;
+            let frames_lost_per_skip = 2;
+            //every 10 minutes, we /dont/ skip a frame. so count the number of times
+            //that happens. This should always be <= minute_count or we will panic.
+            let dropskip_count = minute_count / 10;
+            frame_count -= (minute_count - dropskip_count) * frames_lost_per_skip;
         }
+
+        frame_count
     }
 }
 

@@ -6,6 +6,9 @@ use crate::{
 
 type FramerateValidationResult = Result<(), TimecodeValidationError>;
 
+///The warnings container is used to store possible unintended errors when creating the desired
+///timecode. Things like incorrect dropframe separator and rounding errors when using SMPTE2308
+///timecodes will be added to the provided `&self` structure.
 pub trait WarningContainer {
     fn add_warning(&mut self, w: TimecodeValidationWarning);
 }
