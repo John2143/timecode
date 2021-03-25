@@ -233,8 +233,7 @@ impl<FR: Framerate> Timecode<FR> {
     }
 }
 impl<FR: Framerate> ToFrames for Timecode<FR> {
-    //try to inline this since FR::is_dropframe is going to be a constant.
-    #[inline]
+    //This should be inlined after monomorphization so we shouldn't need inline
     fn to_frame_count(&self) -> usize {
         let max_frame = FR::max_frame() as usize;
         let mut frame_count = 0usize;
