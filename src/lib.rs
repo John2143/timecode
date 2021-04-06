@@ -150,9 +150,12 @@ pub trait ValidateableFramerate: Framerate {
     ) -> Result<(), TimecodeValidationError>;
 }
 
+//24 hours * 60 * 60 * 120 still has lots of room in a u32
+type FrameCount = u32;
+
 #[derive(Copy, Debug, Eq, PartialEq, Clone)]
 #[repr(transparent)]
-pub struct Frames(pub usize);
+pub struct Frames(pub FrameCount);
 
 #[derive(Copy, Debug, Eq, PartialEq, Clone)]
 pub struct Timecode<FR> {
@@ -204,20 +207,20 @@ impl<FR: ValidateableFramerate> std::str::FromStr for Timecode<FR> {
 }
 
 pub trait ToFrames {
-    fn to_frame_count(&self) -> usize;
+    fn to_frame_count(&self) -> FrameCount;
 }
 
 //pub trait FromFrames {
     //fn from_frames(&Frames) -> Self;
 //}
 
-fn div_rem(a: usize, b: usize) -> (usize, usize) {
+fn div_rem(a: FrameCount, b: FrameCount) -> (FrameCount, FrameCount) {
     (a / b, a % b)
 }
 
 impl<FR: Framerate> Timecode<FR> {
     pub fn from_frames(&Frames(mut frame_count): &Frames) -> Self {
-        let max_frame = FR::max_frame() as usize;
+        let max_frame = FR::max_frame() as FrameCount;
         if FR::FR_NUMERATOR == 30000 && FR::FR_DENOMINATOR == 1001 {
             //17982 = 29.97 * 60 * 10
             let (d, mut m) = div_rem(frame_count, 17982);
@@ -245,16 +248,16 @@ impl<FR: Framerate> Timecode<FR> {
 }
 impl<FR: Framerate> ToFrames for Timecode<FR> {
     //This should be inlined after monomorphization so we shouldn't need inline
-    fn to_frame_count(&self) -> usize {
-        let max_frame = FR::max_frame() as usize;
-        let mut frame_count = 0usize;
-        frame_count += self.h as usize * 60 * 60 * max_frame;
-        frame_count += self.m as usize * 60 * max_frame;
-        frame_count += self.s as usize * max_frame;
-        frame_count += self.f as usize;
+    fn to_frame_count(&self) -> FrameCount {
+        let max_frame = FR::max_frame() as FrameCount;
+        let mut frame_count: FrameCount = 0;
+        frame_count += self.h as FrameCount * 60 * 60 * max_frame;
+        frame_count += self.m as FrameCount * 60 * max_frame;
+        frame_count += self.s as FrameCount * max_frame;
+        frame_count += self.f as FrameCount;
 
         if FR::is_dropframe() {
-            let minute_count = self.h as usize * 60 + self.m as usize;
+            let minute_count = self.h as FrameCount * 60 + self.m as FrameCount;
             let frames_lost_per_skip = 2;
             //every 10 minutes, we /dont/ skip a frame. so count the number of times
             //that happens. This should always be <= minute_count or we will panic.
@@ -267,7 +270,7 @@ impl<FR: Framerate> ToFrames for Timecode<FR> {
 }
 
 impl ToFrames for Frames {
-    fn to_frame_count(&self) -> usize {
+    fn to_frame_count(&self) -> FrameCount {
         self.0
     }
 }

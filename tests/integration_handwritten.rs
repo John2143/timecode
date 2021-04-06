@@ -14,7 +14,7 @@ fn add_single_frame<FR: ValidateableFramerate>(input: &str, expected: &str) {
     assert_eq!(expected, b.as_str(), "expected left got right");
 }
 
-fn test_framecount<FR: ValidateableFramerate>(input: &str, expected_count: usize) {
+fn test_framecount<FR: ValidateableFramerate>(input: &str, expected_count: u32) {
     let tc: Timecode<FR> = input.parse().unwrap();
     let count = tc.to_frame_count();
 
@@ -53,7 +53,7 @@ fn test_to_frames_for_df() {
 
 #[test]
 fn test_reversable() {
-    for count in 0usize..(60 * 60 * 30 * 24) {
+    for count in 0u32..(60 * 60 * 30 * 24) {
         //let mut b = SmallString::<[u8; 14]>::new();
 
         let tc: Timecode<DF2997> = Timecode::from_frames(&Frames(count));
@@ -62,4 +62,11 @@ fn test_reversable() {
         let tc: Timecode<NDF30> = Timecode::from_frames(&Frames(count));
         assert_eq!(tc.to_frame_count(), count);
     }
+}
+
+#[test]
+fn ttt() {
+    let tc: Timecode<NDF30> = "24:00:00:00".parse().unwrap();
+
+    assert_eq!(tc.to_frame_count().leading_zeros(), 0);
 }
