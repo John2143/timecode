@@ -50,7 +50,7 @@
 //!assert!(invalid_tc.is_err());
 //!```
 
-use std::{fmt::Display, marker::PhantomData};
+use std::{convert::TryInto, fmt::Display, marker::PhantomData};
 
 use parser::UnvalidatedTC;
 
@@ -65,8 +65,8 @@ macro_rules! framerate_impl {
         pub struct $i;
 
         impl crate::Framerate for $i {
-            const FR_NUMERATOR: usize = $fr_num;
-            const FR_DENOMINATOR: usize = $fr_den;
+            const FR_NUMERATOR: u64 = $fr_num;
+            const FR_DENOMINATOR: u64 = $fr_den;
 
             #[inline]
             fn to_str() -> &'static str {
@@ -113,8 +113,8 @@ pub mod framerates {
 
 
 pub trait Framerate: Copy {
-    const FR_NUMERATOR: usize;
-    const FR_DENOMINATOR: usize;
+    const FR_NUMERATOR: u64;
+    const FR_DENOMINATOR: u64;
     fn to_str() -> &'static str;
     fn to_sep() -> char;
     fn max_frame() -> u8;
@@ -208,6 +208,26 @@ impl<FR: ValidateableFramerate> std::str::FromStr for Timecode<FR> {
 
 pub trait ToFrames {
     fn to_frame_count(&self) -> FrameCount;
+}
+
+//pub trait ConvertableTimecode {
+    //fn convert<SFR, DFR>(self: Timecode<SFR>) -> Timecode<DFR>;
+    //fn convert_with_start<SFR, DFR>(self: Timecode<SFR>, start_timecode: &Timecode<SFR>) -> Timecode<DFR>;
+//}
+
+impl<FR: Framerate> Timecode<FR> {
+    pub fn convert_to<DFR: Framerate>(&self) -> Timecode<DFR> {
+        let count = self.to_frame_count() as u64;
+
+        //new frame count = old frame count * new_framerate / old_framerate
+        //new = old * (new_fr_num / new_fr_denom) / (old_fr_num / old_fr_denom)
+        //new = old * (new_fr_num / new_fr_denom) * (old_fr_denom / old_fr_num)
+
+        let new_fr = count * DFR::FR_NUMERATOR * FR::FR_DENOMINATOR;
+        let new_fr = new_fr / DFR::FR_DENOMINATOR / FR::FR_NUMERATOR;
+
+        Timecode::from_frames(&Frames(new_fr.try_into().expect("Too large")))
+    }
 }
 
 //pub trait FromFrames {

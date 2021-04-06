@@ -65,8 +65,14 @@ fn test_reversable() {
 }
 
 #[test]
-fn ttt() {
-    let tc: Timecode<NDF30> = "24:00:00:00".parse().unwrap();
+fn test_convert() {
+    let tc: Timecode<NDF30> = "01:00:00:00".parse().unwrap();
+    let tc2 = tc.convert_to::<DF2997>();
 
-    assert_eq!(tc.to_frame_count().leading_zeros(), 0);
+    let mut b = SmallString::<[u8; 14]>::new();
+
+    write!(b, "{}", tc2).unwrap();
+
+    assert_eq!("01:00:00;00", "ya");
+
 }
