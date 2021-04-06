@@ -211,24 +211,35 @@ pub trait ToFrames {
     //fn from_frames(&Frames) -> Self;
 //}
 
-impl<FR: Framerate> Timecode<FR> {
-    fn from_frames(&Frames(mut frame_count): &Frames) -> Self {
-        let max_frame = FR::max_frame() as usize;
-        if FR::is_dropframe() {
-            todo!()
-        } else {
-            let f = (frame_count % max_frame) as u8;
-            frame_count /= max_frame;
-            let s = (frame_count % 60) as u8;
-            frame_count /= 60;
-            let m = (frame_count % 60) as u8;
-            frame_count /= 60;
-            let h = frame_count as u8;
+fn div_rem(a: usize, b: usize) -> (usize, usize) {
+    (a / b, a % b)
+}
 
-            Timecode {
-                f, s, m, h,
-                framerate: std::marker::PhantomData,
+impl<FR: Framerate> Timecode<FR> {
+    pub fn from_frames(&Frames(mut frame_count): &Frames) -> Self {
+        let max_frame = FR::max_frame() as usize;
+        if FR::FR_NUMERATOR == 30000 && FR::FR_DENOMINATOR == 1001 {
+            //17982 = 29.97 * 60 * 10
+            let (d, mut m) = div_rem(frame_count, 17982);
+            if m < 2 {
+                m += 2;
             }
+            frame_count += 18 * d + 2 * ((m - 2) / 1798)
+        } else if FR::is_dropframe() {
+            panic!("Dropframe logic for non-29.97 not implemented");
+        }
+
+        let f = (frame_count % max_frame) as u8;
+        frame_count /= max_frame;
+        let s = (frame_count % 60) as u8;
+        frame_count /= 60;
+        let m = (frame_count % 60) as u8;
+        frame_count /= 60;
+        let h = frame_count as u8;
+
+        Timecode {
+            f, s, m, h,
+            framerate: PhantomData,
         }
     }
 }
