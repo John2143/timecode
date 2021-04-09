@@ -73,5 +73,17 @@ fn test_convert() {
 
     write!(b, "{}", tc2).unwrap();
 
-    assert_eq!("01:00:00;00", b);
+    assert_eq!(&b, "01:00:00;00");
+}
+
+#[test]
+fn test_convert_start() {
+    let tc: Timecode<NDF30> = "01:00:00:00".parse().unwrap();
+    let tc2 = tc.convert_with_start::<DF2997>("01:00:00:00".parse().unwrap());
+
+    let mut b = SmallString::<[u8; 14]>::new();
+
+    write!(b, "{}", tc2).unwrap();
+
+    assert_eq!(&b, "01:00:00;00");
 }

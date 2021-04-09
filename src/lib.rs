@@ -223,6 +223,21 @@ impl<FR: Framerate> Timecode<FR> {
 
         Timecode::from_frames(&Frames(new_fr.try_into().expect("Too large")))
     }
+    pub fn convert_with_start<DFR: Framerate>(&self, start: Timecode<FR>) -> Timecode<DFR> {
+        let self_count = self.to_frame_count();
+        let start_count = start.to_frame_count();
+
+        if self_count < start_count {
+            panic!("input timecode is less than start");
+        }
+
+        let new_tc: Timecode<FR> = Timecode::from_frames(&Frames(self_count - start_count));
+        let new_tc = new_tc.convert_to();
+
+        let new_start: Timecode<DFR> = start.convert_to();
+
+        new_tc + Frames(new_start.to_frame_count())
+    }
 }
 
 //simple function to give division with remainder.
