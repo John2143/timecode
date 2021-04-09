@@ -73,6 +73,5 @@ fn test_convert() {
 
     write!(b, "{}", tc2).unwrap();
 
-    assert_eq!("01:00:00;00", "ya");
-
+    assert_eq!("01:00:00;00", b);
 }

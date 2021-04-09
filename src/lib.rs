@@ -210,11 +210,6 @@ pub trait ToFrames {
     fn to_frame_count(&self) -> FrameCount;
 }
 
-//pub trait ConvertableTimecode {
-    //fn convert<SFR, DFR>(self: Timecode<SFR>) -> Timecode<DFR>;
-    //fn convert_with_start<SFR, DFR>(self: Timecode<SFR>, start_timecode: &Timecode<SFR>) -> Timecode<DFR>;
-//}
-
 impl<FR: Framerate> Timecode<FR> {
     pub fn convert_to<DFR: Framerate>(&self) -> Timecode<DFR> {
         let count = self.to_frame_count() as u64;
@@ -230,10 +225,7 @@ impl<FR: Framerate> Timecode<FR> {
     }
 }
 
-//pub trait FromFrames {
-    //fn from_frames(&Frames) -> Self;
-//}
-
+//simple function to give division with remainder.
 fn div_rem(a: FrameCount, b: FrameCount) -> (FrameCount, FrameCount) {
     (a / b, a % b)
 }
