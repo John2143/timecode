@@ -109,8 +109,18 @@ pub mod framerates {
         ';', 30, df = true,
         30000 ; 1001,
     }
-}
 
+    framerate_impl! {
+        NDF25 = "25",
+        ':', 25, df = false,
+        25000 ; 1000,
+    }
+    framerate_impl! {
+        NDF50 = "50",
+        ':', 50, df = false,
+        50000 ; 1000,
+    }
+}
 
 pub trait Framerate: Copy {
     const FR_NUMERATOR: u64;
@@ -268,7 +278,10 @@ impl<FR: Framerate> Timecode<FR> {
         let h = frame_count as u8;
 
         Timecode {
-            f, s, m, h,
+            f,
+            s,
+            m,
+            h,
             framerate: PhantomData,
         }
     }
@@ -301,7 +314,6 @@ impl ToFrames for Frames {
         self.0
     }
 }
-
 
 impl<T: ToFrames, FR: Framerate> std::ops::Add<T> for Timecode<FR> {
     type Output = Timecode<FR>;

@@ -1,7 +1,7 @@
 use crate::{
     framerates::*,
     parser::{Seperator, UnvalidatedTC},
-    Framerate, ValidateableFramerate, Timecode, TimecodeValidationError, TimecodeValidationWarning,
+    Framerate, Timecode, TimecodeValidationError, TimecodeValidationWarning, ValidateableFramerate,
 };
 
 type FramerateValidationResult = Result<(), TimecodeValidationError>;
@@ -40,7 +40,9 @@ impl UnvalidatedTC {
     ///assert_eq!(tc.s(), 0);
     ///assert_eq!(tc.f(), 25);
     ///```
-    pub fn validate<FR: ValidateableFramerate>(&self) -> Result<Timecode<FR>, TimecodeValidationError> {
+    pub fn validate<FR: ValidateableFramerate>(
+        &self,
+    ) -> Result<Timecode<FR>, TimecodeValidationError> {
         FR::validate(&self, &mut ()).map(|_| {
             let UnvalidatedTC { h, m, s, f, .. } = *self;
 
@@ -202,6 +204,44 @@ impl ValidateableFramerate for DF2997 {
 }
 
 impl ValidateableFramerate for NDF2398 {
+    fn validate<T: WarningContainer>(
+        input_tc: &UnvalidatedTC,
+        warnings: &mut T,
+    ) -> FramerateValidationResult {
+        let UnvalidatedTC {
+            m, s, f, seperator, ..
+        } = *input_tc;
+
+        helper_v_ms(m, s)?;
+        helper_v_sep::<Self>(seperator)
+            .err()
+            .map(|e| warnings.add_warning(e));
+        helper_v_max_frame::<Self>(f)?;
+
+        Ok(())
+    }
+}
+
+impl ValidateableFramerate for NDF25 {
+    fn validate<T: WarningContainer>(
+        input_tc: &UnvalidatedTC,
+        warnings: &mut T,
+    ) -> FramerateValidationResult {
+        let UnvalidatedTC {
+            m, s, f, seperator, ..
+        } = *input_tc;
+
+        helper_v_ms(m, s)?;
+        helper_v_sep::<Self>(seperator)
+            .err()
+            .map(|e| warnings.add_warning(e));
+        helper_v_max_frame::<Self>(f)?;
+
+        Ok(())
+    }
+}
+
+impl ValidateableFramerate for NDF50 {
     fn validate<T: WarningContainer>(
         input_tc: &UnvalidatedTC,
         warnings: &mut T,
