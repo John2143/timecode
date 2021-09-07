@@ -1,12 +1,11 @@
 use std::{
-    fmt::{Debug, Write},
+    fmt::Debug,
     fs::File,
     io::{BufRead, BufReader},
     path::Path,
 };
 
-use smallstr::SmallString;
-use timecode::{framerates::*, Framerate, Frames, Timecode, ToFrames, ValidateableFramerate};
+use timecode::{framerates::*, Frames, Timecode, ToFrames, ValidateableFramerate};
 
 fn test_sdvi_frame_count<FR: ValidateableFramerate + Debug + Eq, P: AsRef<Path>>(path: P) {
     let f = BufReader::new(File::open(path).unwrap());
