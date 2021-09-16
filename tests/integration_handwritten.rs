@@ -1,9 +1,11 @@
 use std::fmt::Write;
 
 use smallstr::SmallString;
-use timecode::{framerates::*, Convert, Frames, Timecode, ToFrames, ValidateableFramerate};
+use timecode::{
+    framerates::*, Convert, Frames, NewFramerate, Timecode, ToFrames, ValidateableFramerate,
+};
 
-fn add_single_frame<FR: ValidateableFramerate>(input: &str, expected: &str) {
+fn add_single_frame<FR: ValidateableFramerate + NewFramerate>(input: &str, expected: &str) {
     let tc: Timecode<FR> = input.parse().unwrap();
     let tc = tc + Frames(1);
 
@@ -14,7 +16,7 @@ fn add_single_frame<FR: ValidateableFramerate>(input: &str, expected: &str) {
     assert_eq!(expected, b.as_str(), "expected left got right");
 }
 
-fn test_framecount<FR: ValidateableFramerate>(input: &str, expected_count: u32) {
+fn test_framecount<FR: ValidateableFramerate + NewFramerate>(input: &str, expected_count: u32) {
     let tc: Timecode<FR> = input.parse().unwrap();
     let count = tc.to_frame_count();
 

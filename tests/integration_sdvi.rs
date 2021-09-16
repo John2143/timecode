@@ -5,9 +5,13 @@ use std::{
     path::Path,
 };
 
-use timecode::{framerates::*, Convert, Frames, Timecode, ToFrames, ValidateableFramerate};
+use timecode::{
+    framerates::*, Convert, Frames, NewFramerate, Timecode, ToFrames, ValidateableFramerate,
+};
 
-fn test_sdvi_frame_count<FR: ValidateableFramerate + Debug + Eq, P: AsRef<Path>>(path: P) {
+fn test_sdvi_frame_count<FR: ValidateableFramerate + Debug + Eq + NewFramerate, P: AsRef<Path>>(
+    path: P,
+) {
     let f = BufReader::new(File::open(path).unwrap());
 
     for line in f.lines().map(|x| x.unwrap()) {
@@ -23,8 +27,8 @@ fn test_sdvi_frame_count<FR: ValidateableFramerate + Debug + Eq, P: AsRef<Path>>
 
 fn test_sdvi_frame_convert<FRS, FRD, P>(path: P)
 where
-    FRS: ValidateableFramerate + Debug + Eq,
-    FRD: ValidateableFramerate + Debug + Eq,
+    FRS: ValidateableFramerate + Debug + Eq + NewFramerate,
+    FRD: ValidateableFramerate + Debug + Eq + NewFramerate,
     P: AsRef<Path>,
 {
     let f = BufReader::new(File::open(path).unwrap());
