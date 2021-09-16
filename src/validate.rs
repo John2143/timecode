@@ -51,7 +51,7 @@ impl UnvalidatedTC {
                 m,
                 s,
                 f,
-                framerate: std::marker::PhantomData,
+                framerate: FR::new(),
             }
         })
     }
@@ -87,7 +87,7 @@ impl UnvalidatedTC {
                     m,
                     s,
                     f,
-                    framerate: std::marker::PhantomData,
+                    framerate: FR::new(),
                 },
                 warnings,
             )
@@ -122,7 +122,7 @@ impl UnvalidatedTC {
             m,
             s,
             f,
-            framerate: std::marker::PhantomData,
+            framerate: FR::new(),
         }
     }
 }

@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use smallstr::SmallString;
-use timecode::{framerates::*, Frames, Timecode, ToFrames, ValidateableFramerate};
+use timecode::{framerates::*, Convert, Frames, Timecode, ToFrames, ValidateableFramerate};
 
 fn add_single_frame<FR: ValidateableFramerate>(input: &str, expected: &str) {
     let tc: Timecode<FR> = input.parse().unwrap();
@@ -62,10 +62,10 @@ fn test_reversable() {
     for count in 0u32..(60 * 60 * 30 * 24) {
         //let mut b = SmallString::<[u8; 14]>::new();
 
-        let tc: Timecode<DF2997> = Timecode::from_frames(&Frames(count));
+        let tc: Timecode<DF2997> = Timecode::from_frames(&Frames(count), &DF2997);
         assert_eq!(tc.to_frame_count(), count);
 
-        let tc: Timecode<NDF30> = Timecode::from_frames(&Frames(count));
+        let tc: Timecode<NDF30> = Timecode::from_frames(&Frames(count), &NDF30);
         assert_eq!(tc.to_frame_count(), count);
     }
 }

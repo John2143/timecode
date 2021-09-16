@@ -5,7 +5,7 @@ use std::{
     path::Path,
 };
 
-use timecode::{framerates::*, Frames, Timecode, ToFrames, ValidateableFramerate};
+use timecode::{framerates::*, Convert, Frames, Timecode, ToFrames, ValidateableFramerate};
 
 fn test_sdvi_frame_count<FR: ValidateableFramerate + Debug + Eq, P: AsRef<Path>>(path: P) {
     let f = BufReader::new(File::open(path).unwrap());
@@ -13,7 +13,8 @@ fn test_sdvi_frame_count<FR: ValidateableFramerate + Debug + Eq, P: AsRef<Path>>
     for line in f.lines().map(|x| x.unwrap()) {
         let parts: Vec<_> = line.split("|").collect();
 
-        let my_version: Timecode<FR> = Timecode::from_frames(&Frames(parts[0].parse().unwrap()));
+        let my_version: Timecode<FR> =
+            Timecode::from_frames(&Frames(parts[0].parse().unwrap()), &FR::new());
         let sdvi_version: Timecode<FR> = parts[1].parse().unwrap();
 
         assert_eq!(my_version, sdvi_version);
@@ -30,7 +31,8 @@ where
     for line in f.lines().map(|x| x.unwrap()) {
         let parts: Vec<_> = line.split("|").collect();
 
-        let my_version: Timecode<FRS> = Timecode::from_frames(&Frames(parts[0].parse().unwrap()));
+        let my_version: Timecode<FRS> =
+            Timecode::from_frames(&Frames(parts[0].parse().unwrap()), &FRS::new());
         let my_version: Timecode<FRD> = my_version.convert_to();
 
         let sdvi_version: Timecode<FRD> = parts[1].parse().unwrap();
