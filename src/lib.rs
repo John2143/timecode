@@ -50,7 +50,7 @@
 //!assert!(invalid_tc.is_err());
 //!```
 
-use std::{convert::TryInto, fmt::Display, marker::PhantomData};
+use std::{convert::TryInto, fmt::Display, marker::PhantomData, ops::Add};
 
 use parser::UnvalidatedTC;
 
@@ -65,28 +65,37 @@ macro_rules! framerate_impl {
         pub struct $i;
 
         impl crate::Framerate for $i {
-            const FR_NUMERATOR: u64 = $fr_num;
-            const FR_DENOMINATOR: u64 = $fr_den;
+            fn new() -> Self {
+                $i
+            }
 
             #[inline]
-            fn to_str() -> &'static str {
+            fn to_str(&self) -> &'static str {
                 $rep
             }
 
-            fn to_sep() -> char {
+            fn to_sep(&self) -> char {
                 $sep
             }
 
-            fn max_frame() -> u8 {
+            fn max_frame(&self) -> u8 {
                 $max_frame
             }
 
-            fn is_dropframe() -> bool {
+            fn is_dropframe(&self) -> bool {
                 $is_dropframe
             }
 
-            fn framerate_ratio() -> f32 {
-                Self::FR_NUMERATOR as f32 / Self::FR_DENOMINATOR as f32
+            fn framerate_ratio(&self) -> f32 {
+                self.nom() as f32 / self.den() as f32
+            }
+
+            fn nom(&self) -> u64 {
+                $fr_num
+            }
+
+            fn den(&self) -> u64 {
+                $fr_den
             }
         }
     };
@@ -109,7 +118,6 @@ pub mod framerates {
         ';', 30, df = true,
         30000 ; 1001,
     }
-
     framerate_impl! {
         NDF25 = "25",
         ':', 25, df = false,
@@ -122,15 +130,74 @@ pub mod framerates {
     }
 }
 
-pub trait Framerate: Copy {
-    const FR_NUMERATOR: u64;
-    const FR_DENOMINATOR: u64;
-    fn to_str() -> &'static str;
-    fn to_sep() -> char;
-    fn max_frame() -> u8;
-    fn is_dropframe() -> bool;
-    fn framerate_ratio() -> f32;
+const FRAMERATE_LIST: &'static [&'static dyn Framerate] = {
+    use framerates::*;
+    &[&NDF30, &NDF2398, &DF2997, &NDF25, &NDF50]
+};
+
+pub trait Framerate {
+    fn new() -> Self
+    where
+        Self: Sized;
+    fn to_str(&self) -> &'static str;
+    fn to_sep(&self) -> char;
+    fn max_frame(&self) -> u8;
+    fn is_dropframe(&self) -> bool;
+    fn framerate_ratio(&self) -> f32;
+    fn nom(&self) -> u64;
+    fn den(&self) -> u64;
 }
+
+pub struct DynTimecode {
+    h: u8,
+    m: u8,
+    s: u8,
+    f: u8,
+    framerate: u8,
+}
+
+trait GetFramerate {
+    fn get_framerate(&self) -> &'static dyn Framerate;
+}
+
+impl GetFramerate for DynTimecode {
+    fn get_framerate(&self) -> &'static dyn Framerate {
+        FRAMERATE_LIST[self.framerate as usize]
+    }
+}
+
+impl DynTimecode {
+    fn downcast<T: Framerate>(self) -> Option<Timecode<T>> {
+        if T::new().to_str() == self.get_framerate().to_str() {
+            Some(Timecode {
+                h: self.h,
+                m: self.m,
+                s: self.s,
+                f: self.f,
+                framerate: PhantomData,
+            })
+        } else {
+            None
+        }
+    }
+}
+
+impl<T: Framerate> Timecode<T> {
+    fn upcast(self) -> DynTimecode {
+        DynTimecode {
+            h: self.h,
+            m: self.m,
+            s: self.s,
+            f: self.f,
+            framerate: FRAMERATE_LIST
+                .iter()
+                .position(|x| x.to_str() == T::new().to_str())
+                .unwrap() as u8,
+        }
+    }
+}
+
+pub struct FramerateMismatch;
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum TimecodeValidationError {
@@ -184,7 +251,7 @@ impl<FR: Framerate> Display for Timecode<FR> {
             self.h,
             self.m,
             self.s,
-            FR::to_sep(),
+            FR::new().to_sep(),
             self.f
         )?;
         Ok(())
@@ -228,12 +295,16 @@ impl<FR: Framerate> Timecode<FR> {
         //new = old * (new_fr_num / new_fr_denom) / (old_fr_num / old_fr_denom)
         //new = old * (new_fr_num / new_fr_denom) * (old_fr_denom / old_fr_num)
 
-        let new_fr = count * DFR::FR_NUMERATOR * FR::FR_DENOMINATOR;
-        let new_fr = new_fr / DFR::FR_DENOMINATOR / FR::FR_NUMERATOR;
+        let new_fr = count * DFR::new().nom() * FR::new().den();
+        let new_fr = new_fr / DFR::new().den() / FR::new().nom();
 
         Timecode::from_frames(&Frames(new_fr.try_into().expect("Too large")))
     }
-    pub fn convert_with_start<DFR: Framerate>(&self, start: Timecode<FR>) -> Timecode<DFR> {
+
+    pub fn convert_with_start<DFR>(&self, start: Timecode<FR>) -> Timecode<DFR>
+    where
+        DFR: Framerate,
+    {
         let self_count = self.to_frame_count();
         let start_count = start.to_frame_count();
 
@@ -242,11 +313,11 @@ impl<FR: Framerate> Timecode<FR> {
         }
 
         let new_tc: Timecode<FR> = Timecode::from_frames(&Frames(self_count - start_count));
-        let new_tc = new_tc.convert_to();
+        let new_tc: Timecode<DFR> = new_tc.convert_to();
 
         let new_start: Timecode<DFR> = start.convert_to();
 
-        new_tc + Frames(new_start.to_frame_count())
+        new_tc + new_start
     }
 }
 
@@ -257,15 +328,15 @@ fn div_rem(a: FrameCount, b: FrameCount) -> (FrameCount, FrameCount) {
 
 impl<FR: Framerate> Timecode<FR> {
     pub fn from_frames(&Frames(mut frame_count): &Frames) -> Self {
-        let max_frame = FR::max_frame() as FrameCount;
-        if FR::FR_NUMERATOR == 30000 && FR::FR_DENOMINATOR == 1001 {
+        let max_frame = FR::new().max_frame() as FrameCount;
+        if FR::new().nom() == 30000 && FR::new().den() == 1001 {
             //17982 = 29.97 * 60 * 10
             let (d, mut m) = div_rem(frame_count, 17982);
             if m < 2 {
                 m += 2;
             }
             frame_count += 18 * d + 2 * ((m - 2) / 1798)
-        } else if FR::is_dropframe() {
+        } else if FR::new().is_dropframe() {
             panic!("Dropframe logic for non-29.97 not implemented");
         }
 
@@ -286,17 +357,18 @@ impl<FR: Framerate> Timecode<FR> {
         }
     }
 }
+
 impl<FR: Framerate> ToFrames for Timecode<FR> {
     //This should be inlined after monomorphization so we shouldn't need inline
     fn to_frame_count(&self) -> FrameCount {
-        let max_frame = FR::max_frame() as FrameCount;
+        let max_frame = FR::new().max_frame() as FrameCount;
         let mut frame_count: FrameCount = 0;
         frame_count += self.h as FrameCount * 60 * 60 * max_frame;
         frame_count += self.m as FrameCount * 60 * max_frame;
         frame_count += self.s as FrameCount * max_frame;
         frame_count += self.f as FrameCount;
 
-        if FR::is_dropframe() {
+        if FR::new().is_dropframe() {
             let minute_count = self.h as FrameCount * 60 + self.m as FrameCount;
             let frames_lost_per_skip = 2;
             //every 10 minutes, we /dont/ skip a frame. so count the number of times
@@ -315,11 +387,20 @@ impl ToFrames for Frames {
     }
 }
 
-impl<T: ToFrames, FR: Framerate> std::ops::Add<T> for Timecode<FR> {
+impl<FR: Framerate> std::ops::Add<Timecode<FR>> for Timecode<FR> {
     type Output = Timecode<FR>;
 
-    fn add(self, rhs: T) -> Self::Output {
+    fn add(self, rhs: Timecode<FR>) -> Self::Output {
         let frames = Frames(self.to_frame_count()) + Frames(rhs.to_frame_count());
+        Timecode::from_frames(&frames)
+    }
+}
+
+impl<FR: Framerate> std::ops::Add<Frames> for Timecode<FR> {
+    type Output = Timecode<FR>;
+
+    fn add(self, rhs: Frames) -> Self::Output {
+        let frames = Frames(self.to_frame_count()) + rhs;
         Timecode::from_frames(&frames)
     }
 }

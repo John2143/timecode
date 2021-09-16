@@ -140,7 +140,7 @@ fn helper_v_ms(m: u8, s: u8) -> Result<(), TimecodeValidationError> {
 }
 
 fn helper_v_sep<FR: Framerate>(seperator: Seperator) -> Result<(), TimecodeValidationWarning> {
-    if FR::to_sep() != seperator.into() {
+    if FR::new().to_sep() != seperator.into() {
         return Err(TimecodeValidationWarning::MismatchSep);
     }
 
@@ -148,7 +148,7 @@ fn helper_v_sep<FR: Framerate>(seperator: Seperator) -> Result<(), TimecodeValid
 }
 
 fn helper_v_max_frame<FR: Framerate>(f: u8) -> Result<(), TimecodeValidationError> {
-    if FR::max_frame() <= f {
+    if FR::new().max_frame() <= f {
         Err(TimecodeValidationError::InvalidFrames)
     } else {
         Ok(())
