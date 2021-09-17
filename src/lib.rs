@@ -133,9 +133,10 @@ pub mod framerates {
 }
 
 use framerates::*;
+
 #[enum_dispatch::enum_dispatch]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum DynFramerate {
+pub enum DynFramerate {
     NDF30,
     NDF50,
     NDF25,
@@ -149,13 +150,13 @@ impl FromStr for DynFramerate {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "30" => Ok(Self::NDF30(NDF30)),
-            "50" => Ok(Self::NDF50(NDF50)),
-            "25" => Ok(Self::NDF25(NDF25)),
-            "2398" => Ok(Self::NDF2398(NDF2398)),
-            "24" => Ok(Self::NDF2398(NDF2398)),
+            "30" => Ok(NDF30.into()),
+            "50" => Ok(NDF50.into()),
+            "25" => Ok(NDF25.into()),
+            "2398" => Ok(NDF2398.into()),
+            "24" => Ok(NDF2398.into()),
 
-            "2997" => Ok(Self::DF2997(DF2997)),
+            "2997" => Ok(DF2997.into()),
             _ => Err("not found"),
         }
     }
