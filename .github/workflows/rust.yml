@@ -20,3 +20,7 @@ jobs:
       run: cargo build --verbose
     - name: Run tests
       run: cargo test --verbose
+    - name: Build for JS
+      run: make javascript
+    - name: Build for python
+      run: make python
