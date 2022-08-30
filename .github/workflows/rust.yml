@@ -21,6 +21,6 @@ jobs:
     - name: Run tests
       run: cargo test --verbose
     - name: Build for JS
-      run: make javascript
+      run: make node
     - name: Build for python
       run: make python
