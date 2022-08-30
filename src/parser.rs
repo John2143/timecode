@@ -4,9 +4,12 @@ use nom::{
     bytes::complete::take_while_m_n,
     character::complete::{char, satisfy},
     combinator::map_res,
+    error::{make_error, ParseError},
     sequence::{pair, tuple},
     IResult,
 };
+
+use crate::FrameCount;
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum Seperator {
@@ -42,7 +45,7 @@ pub struct UnvalidatedTC {
     pub h: u8,
     pub m: u8,
     pub s: u8,
-    pub f: u8,
+    pub f: FrameCount,
     pub seperator: Seperator,
 }
 
@@ -58,16 +61,16 @@ impl std::str::FromStr for UnvalidatedTC {
 }
 
 ///string to int for numbers <255
-fn from_dec(input: &str) -> Result<u8, std::num::ParseIntError> {
-    u8::from_str_radix(input, 10)
+fn from_dec(input: &str) -> Result<u64, std::num::ParseIntError> {
+    u64::from_str_radix(input, 10)
 }
 
 ///takes 2-3 digits from a timecode string and parse it into int
 ///
 ///This may return an invalid value for seconds, minutes, or frames, so it is up to the user to
 ///validate after receiving this input.
-fn tc_digits(input: &str) -> IResult<&str, u8> {
-    map_res(take_while_m_n(2, 3, |c: char| c.is_digit(10)), from_dec)(input)
+fn tc_digits<const SIZE: usize>(input: &str) -> IResult<&str, u64> {
+    map_res(take_while_m_n(2, SIZE, |c: char| c.is_digit(10)), from_dec)(input)
 }
 
 fn tc_seperator(input: &str) -> IResult<&str, Seperator> {
@@ -79,15 +82,27 @@ fn tc_seperator(input: &str) -> IResult<&str, Seperator> {
 
 pub fn timecode_nom(input: &str) -> IResult<&str, UnvalidatedTC> {
     let parse_timecode = tuple((
-        pair(tc_digits, char(':')),
-        pair(tc_digits, char(':')),
-        pair(tc_digits, tc_seperator),
-        tc_digits,
+        pair(tc_digits::<3>, char(':')),
+        pair(tc_digits::<3>, char(':')),
+        pair(tc_digits::<3>, tc_seperator),
+        tc_digits::<10>,
     ))(input)?;
 
     //destructure into more readable format
     let (input, ((h, _), (m, _), (s, sep), f)) = parse_timecode;
 
+    let h: u8 = h
+        .try_into()
+        .map_err(|e| nom::Err::Error(make_error(input, nom::error::ErrorKind::Alpha)))?;
+    let m: u8 = m
+        .try_into()
+        .map_err(|e| nom::Err::Error(make_error(input, nom::error::ErrorKind::Alpha)))?;
+    let s: u8 = s
+        .try_into()
+        .map_err(|e| nom::Err::Error(make_error(input, nom::error::ErrorKind::Alpha)))?;
+    let f = f
+        .try_into()
+        .map_err(|e| nom::Err::Error(make_error(input, nom::error::ErrorKind::Alpha)))?;
     Ok((
         input,
         UnvalidatedTC {

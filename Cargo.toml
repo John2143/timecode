@@ -5,10 +5,19 @@ authors = ["John Schmidt <john@john2143.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default=[]
+javascript=["wasm-bindgen"]
+python=["pyo3"]
+
+[lib]
+name = "timecode"
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-enum_dispatch = "0.3.7"
 nom = "7.0.0"
+pyo3 = { version = "0.17.1", features = ["extension-module"], optional = true }
+wasm-bindgen = { version = "0.2.82", optional = true }
 #smallstr = "0.2.0"
 
 [dev-dependencies]

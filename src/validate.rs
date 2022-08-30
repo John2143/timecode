@@ -1,8 +1,7 @@
 use crate::{
-    framerates::*,
     parser::{Seperator, UnvalidatedTC},
-    Framerate, NewFramerate, Timecode, TimecodeValidationError, TimecodeValidationWarning,
-    ValidateableFramerate,
+    FrameCount, Framerate, NewFramerate, Timecode, TimecodeValidationError,
+    TimecodeValidationWarning, ValidateableFramerate,
 };
 
 type FramerateValidationResult = Result<(), TimecodeValidationError>;
@@ -47,7 +46,7 @@ impl UnvalidatedTC {
         self.validate_dyn(&FR::new())
     }
 
-    ///See validate_dyn
+    ///See validate
     pub fn validate_dyn<FR: ValidateableFramerate>(
         &self,
         fr: &FR,
@@ -89,7 +88,7 @@ impl UnvalidatedTC {
         self.validate_with_warnings_dyn(&FR::new())
     }
 
-    ///See validate_with_warnings.
+    ///See validate_with_warnings
     pub fn validate_with_warnings_dyn<FR: ValidateableFramerate>(
         &self,
         fr: &FR,
@@ -135,6 +134,7 @@ impl UnvalidatedTC {
         self.validate_unchecked_dyn(&FR::new())
     }
 
+    ///see validate_unchecked
     pub unsafe fn validate_unchecked_dyn<FR: Framerate>(&self, fr: &FR) -> Timecode<FR> {
         let UnvalidatedTC { h, m, s, f, .. } = *self;
 
@@ -171,7 +171,10 @@ fn helper_v_sep<FR: Framerate>(
     Ok(())
 }
 
-fn helper_v_max_frame<FR: Framerate>(f: u8, fr: &FR) -> Result<(), TimecodeValidationError> {
+fn helper_v_max_frame<FR: Framerate>(
+    f: FrameCount,
+    fr: &FR,
+) -> Result<(), TimecodeValidationError> {
     if fr.max_frame() <= f {
         Err(TimecodeValidationError::InvalidFrames)
     } else {
@@ -180,7 +183,7 @@ fn helper_v_max_frame<FR: Framerate>(f: u8, fr: &FR) -> Result<(), TimecodeValid
 }
 
 ///drop frame rules are the same regardless of framerate.
-fn helper_v_drop_frame(m: u8, s: u8, f: u8) -> Result<(), TimecodeValidationError> {
+fn helper_v_drop_frame(m: u8, s: u8, f: FrameCount) -> Result<(), TimecodeValidationError> {
     if m % 10 != 0 && s == 0 && f < 2 {
         return Err(TimecodeValidationError::InvalidFrames);
     }
