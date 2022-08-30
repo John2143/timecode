@@ -16,12 +16,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: install wasm-pack
-      run: cargo install wasm-pack
-    - name: install maturin
-      run: pip3 install maturin
 
-    - uses: actions/cache@v3
+    - name: Cache Packages
+      uses: actions/cache@v3
+      id: cache-packages
       with:
         path: |
           ~/.cargo/bin/
@@ -30,6 +28,13 @@ jobs:
           ~/.cargo/git/db/
           target/
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: install wasm-pack
+      if: steps.cache-packages.outputs.cache-hit != 'true'
+      run: cargo install wasm-pack
+
+    - name: install maturin
+      run: pip3 install maturin
 
     - name: Build
       run: cargo build --verbose
