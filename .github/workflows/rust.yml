@@ -46,5 +46,5 @@ jobs:
     - name: Build for python
       run: make python
 
-    - name: Fuzz
-      run: cargo fuzz run fuzz_target_1
+    #- name: Fuzz
+      #run: cargo fuzz run fuzz_target_1
