@@ -21,4 +21,4 @@ wasm-bindgen = { version = "0.2.82", optional = true }
 #smallstr = "0.2.0"
 
 [dev-dependencies]
-smallstr = "0.2.0"
+smallstr = "0.3.0"
