@@ -2,12 +2,15 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
 #[pymodule]
+#[deprecated(note = "Do not use this yet, is it not ready")]
 fn timecode(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<JSTimecode>()?;
     Ok(())
 }
 
-use crate::{Convert, DynFramerate, FrameCount, Framerate, Frames, Timecode, ToFrames};
+//use crate::Convert;
+//use crate::Framerate;
+use crate::{DynFramerate, FrameCount, Frames, Timecode, ToFrames};
 
 #[pyclass]
 #[derive(Clone)]

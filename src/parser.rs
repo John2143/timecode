@@ -4,7 +4,7 @@ use nom::{
     bytes::complete::take_while_m_n,
     character::complete::{char, satisfy},
     combinator::map_res,
-    error::{make_error, ParseError},
+    error::make_error,
     sequence::{pair, tuple},
     IResult,
 };
@@ -85,24 +85,20 @@ pub fn timecode_nom(input: &str) -> IResult<&str, UnvalidatedTC> {
         pair(tc_digits::<3>, char(':')),
         pair(tc_digits::<3>, char(':')),
         pair(tc_digits::<3>, tc_seperator),
+        //up to 10 digits for frames: TODO not to spec?
         tc_digits::<10>,
     ))(input)?;
 
     //destructure into more readable format
     let (input, ((h, _), (m, _), (s, sep), f)) = parse_timecode;
 
-    let h: u8 = h
-        .try_into()
-        .map_err(|e| nom::Err::Error(make_error(input, nom::error::ErrorKind::Alpha)))?;
-    let m: u8 = m
-        .try_into()
-        .map_err(|e| nom::Err::Error(make_error(input, nom::error::ErrorKind::Alpha)))?;
-    let s: u8 = s
-        .try_into()
-        .map_err(|e| nom::Err::Error(make_error(input, nom::error::ErrorKind::Alpha)))?;
-    let f = f
-        .try_into()
-        .map_err(|e| nom::Err::Error(make_error(input, nom::error::ErrorKind::Alpha)))?;
+    //Make sure we have valid values for all the parts
+    let invalid = |_| nom::Err::Error(make_error(input, nom::error::ErrorKind::Alpha));
+    let h = h.try_into().map_err(invalid)?;
+    let m = m.try_into().map_err(invalid)?;
+    let s = s.try_into().map_err(invalid)?;
+    let f = f.try_into().map_err(invalid)?;
+
     Ok((
         input,
         UnvalidatedTC {
