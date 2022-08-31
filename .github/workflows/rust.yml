@@ -27,7 +27,7 @@ jobs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
           target/
-        key: ${{ runner.os }}-cargodeps-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-cargodeps-${{ hashFiles('**/Cargo.toml') }}
 
     - name: install rust deps
       if: steps.cache-packages.outputs.cache-hit != 'true'
