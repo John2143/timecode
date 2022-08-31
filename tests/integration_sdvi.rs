@@ -37,7 +37,7 @@ where
 
         let my_version: Timecode<FRS> =
             Timecode::from_frames(&Frames(parts[0].parse().unwrap()), &FRS::new());
-        let my_version: Timecode<FRD> = my_version.convert_to();
+        let my_version: Timecode<FRD> = my_version.convert();
 
         let sdvi_version: Timecode<FRD> = parts[1].parse().unwrap();
 

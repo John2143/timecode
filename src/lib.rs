@@ -136,6 +136,12 @@ pub mod framerates {
         30000 ; 1001,
     }
 
+    framerate_impl! {
+        DF5994 = "59.94",
+        ';', 30, df = true,
+        30000 ; 1001,
+    }
+
     #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     pub struct NDFAny(pub crate::FrameCount);
 
@@ -181,8 +187,8 @@ use framerates::*;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DynFramerate {
-    NDF2398,
     DF2997,
+    DF5994,
     NDFAny(FrameCount),
 }
 
@@ -194,7 +200,7 @@ impl Framerate for DynFramerate {
     fn to_sep(&self) -> char {
         match self {
             DynFramerate::DF2997 => DF2997.to_sep(),
-            DynFramerate::NDF2398 => NDF2398.to_sep(),
+            DynFramerate::DF5994 => DF5994.to_sep(),
             DynFramerate::NDFAny(_) => ':',
         }
     }
@@ -202,7 +208,7 @@ impl Framerate for DynFramerate {
     fn max_frame(&self) -> FrameCount {
         match self {
             DynFramerate::DF2997 => DF2997.max_frame(),
-            DynFramerate::NDF2398 => NDF2398.max_frame(),
+            DynFramerate::DF5994 => DF5994.max_frame(),
             DynFramerate::NDFAny(n) => NDFAny(*n).max_frame(),
         }
     }
@@ -210,7 +216,7 @@ impl Framerate for DynFramerate {
     fn is_dropframe(&self) -> bool {
         match self {
             DynFramerate::DF2997 => DF2997.is_dropframe(),
-            DynFramerate::NDF2398 => NDF2398.is_dropframe(),
+            DynFramerate::DF5994 => DF5994.is_dropframe(),
             DynFramerate::NDFAny(n) => NDFAny(*n).is_dropframe(),
         }
     }
@@ -218,7 +224,7 @@ impl Framerate for DynFramerate {
     fn fr_ratio(&self) -> f32 {
         match self {
             DynFramerate::DF2997 => DF2997.fr_ratio(),
-            DynFramerate::NDF2398 => NDF2398.fr_ratio(),
+            DynFramerate::DF5994 => DF5994.fr_ratio(),
             DynFramerate::NDFAny(n) => NDFAny(*n).fr_ratio(),
         }
     }
@@ -226,7 +232,7 @@ impl Framerate for DynFramerate {
     fn fr_num(&self) -> u64 {
         match self {
             DynFramerate::DF2997 => DF2997.fr_num(),
-            DynFramerate::NDF2398 => NDF2398.fr_num(),
+            DynFramerate::DF5994 => DF5994.fr_num(),
             DynFramerate::NDFAny(n) => NDFAny(*n).fr_num(),
         }
     }
@@ -234,7 +240,7 @@ impl Framerate for DynFramerate {
     fn fr_denom(&self) -> u64 {
         match self {
             DynFramerate::DF2997 => DF2997.fr_denom(),
-            DynFramerate::NDF2398 => NDF2398.fr_denom(),
+            DynFramerate::DF5994 => DF5994.fr_denom(),
             DynFramerate::NDFAny(n) => NDFAny(*n).fr_denom(),
         }
     }
@@ -245,18 +251,65 @@ impl FromStr for DynFramerate {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         use DynFramerate::*;
-        match s {
-            "2398" => Ok(NDF2398),
-            "24" => Ok(NDF2398),
-            "2997" => Ok(DF2997),
-            "29.97" => Ok(DF2997),
-            "23.98" => Ok(NDF2398),
 
-            s => match s.parse() {
-                Ok(fr) => Ok(NDFAny(fr)),
-                Err(_) => Err("Invalid framerate"),
-            },
+        //if it can be parsed as an integer, assume it is NDF
+        if let Ok(fr) = s.parse() {
+            return Ok(NDFAny(fr));
         }
+
+        let special_framerates = [(29.97, DF2997), (23.98, NDFAny(24)), (59.94, DF5994)];
+        if let Ok(float) = s.parse::<f64>() {
+            const EPISILON: f64 = 0.01;
+
+            //If it can be parsed as a float, see if it is near a whole number
+            if (float - float.round()).abs() < EPISILON {
+                return Ok(NDFAny(float.round() as _));
+            }
+
+            //Or if it is a special framerate
+            for (fr, s) in special_framerates {
+                if (float - fr).abs() < EPISILON {
+                    return Ok(s);
+                }
+            }
+        }
+
+        Err("No known dropframe timecode")
+    }
+}
+
+#[cfg(test)]
+mod read_fr_tests {
+    use crate::DynFramerate;
+
+    #[test]
+    fn read_int() {
+        let s: DynFramerate = "25".parse().unwrap();
+        assert_eq!(s, DynFramerate::NDFAny(25));
+    }
+
+    #[test]
+    fn read_float() {
+        let s: DynFramerate = "25.00".parse().unwrap();
+        assert_eq!(s, DynFramerate::NDFAny(25));
+    }
+
+    #[test]
+    fn read_float_df() {
+        let s: DynFramerate = "29.97".parse().unwrap();
+        assert_eq!(s, DynFramerate::DF2997);
+    }
+
+    #[test]
+    fn read_float_ndf_special() {
+        let s: DynFramerate = "23.98".parse().unwrap();
+        assert_eq!(s, DynFramerate::NDFAny(24));
+    }
+
+    #[test]
+    fn read_fr_high() {
+        let s: DynFramerate = "239.99".parse().unwrap();
+        assert_eq!(s, DynFramerate::NDFAny(240));
     }
 }
 
@@ -389,7 +442,7 @@ impl FromStr for Timecode<DynFramerate> {
             .parse()
             .map_err(|_| TimecodeValidationError::Unparsed)?;
 
-        tc.validate_dyn(&d)
+        tc.validate_with_fr(&d)
     }
 }
 
@@ -400,7 +453,7 @@ impl Timecode<DynFramerate> {
             .parse()
             .map_err(|_| TimecodeValidationError::InvalidFramerate)?;
 
-        tc.validate_dyn(&d)
+        tc.validate_with_fr(&d)
     }
 }
 
@@ -413,18 +466,18 @@ pub trait ToFrames<FR> {
 }
 
 pub trait Convert {
-    fn convert_to<DFR: Framerate + NewFramerate>(&self) -> Timecode<DFR>;
-    fn convert_to_dyn<DFR: Framerate>(&self, fr: &DFR) -> Timecode<DFR>;
+    fn convert<DFR: Framerate + NewFramerate>(&self) -> Timecode<DFR>;
+    fn convert_with_fr<DFR: Framerate>(&self, framerate: &DFR) -> Timecode<DFR>;
     fn convert_with_start<DFR: Framerate + NewFramerate>(&self, start: Self) -> Timecode<DFR>;
-    fn convert_with_start_dyn<DFR: Framerate>(&self, start: Self, fr: &DFR) -> Timecode<DFR>;
+    fn convert_with_start_fr<DFR: Framerate>(&self, start: Self, framerate: &DFR) -> Timecode<DFR>;
 }
 
 impl<FR: Framerate> Convert for Timecode<FR> {
-    fn convert_to<DFR: Framerate + NewFramerate>(&self) -> Timecode<DFR> {
-        self.convert_to_dyn(&DFR::new())
+    fn convert<DFR: Framerate + NewFramerate>(&self) -> Timecode<DFR> {
+        self.convert_with_fr(&DFR::new())
     }
 
-    fn convert_to_dyn<DFR: Framerate>(&self, fr: &DFR) -> Timecode<DFR> {
+    fn convert_with_fr<DFR: Framerate>(&self, fr: &DFR) -> Timecode<DFR> {
         let count = self.to_frame_count() as u64;
 
         //new frame count = old frame count * new_framerate / old_framerate
@@ -441,10 +494,10 @@ impl<FR: Framerate> Convert for Timecode<FR> {
     where
         DFR: Framerate + NewFramerate,
     {
-        self.convert_with_start_dyn(start, &DFR::new())
+        self.convert_with_start_fr(start, &DFR::new())
     }
 
-    fn convert_with_start_dyn<DFR>(&self, start: Self, fr: &DFR) -> Timecode<DFR>
+    fn convert_with_start_fr<DFR>(&self, start: Self, fr: &DFR) -> Timecode<DFR>
     where
         DFR: Framerate,
     {
@@ -457,9 +510,9 @@ impl<FR: Framerate> Convert for Timecode<FR> {
 
         let new_tc: Timecode<FR> =
             Timecode::from_frames(&Frames(self_count - start_count), &self.framerate);
-        let new_tc: Timecode<DFR> = new_tc.convert_to_dyn(fr);
+        let new_tc: Timecode<DFR> = new_tc.convert_with_fr(fr);
 
-        let new_start: Timecode<DFR> = start.convert_to_dyn(fr);
+        let new_start: Timecode<DFR> = start.convert_with_fr(fr);
 
         new_tc + new_start
     }

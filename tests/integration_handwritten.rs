@@ -75,7 +75,7 @@ fn test_reversable() {
 #[test]
 fn test_convert() {
     let tc: Timecode<NDF30> = "01:00:00:00".parse().unwrap();
-    let tc2 = tc.convert_to::<DF2997>();
+    let tc2 = tc.convert::<DF2997>();
 
     let mut b = SmallString::<[u8; 14]>::new();
 

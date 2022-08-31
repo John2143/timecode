@@ -43,11 +43,11 @@ impl UnvalidatedTC {
     pub fn validate<FR: ValidateableFramerate + NewFramerate>(
         &self,
     ) -> Result<Timecode<FR>, TimecodeValidationError> {
-        self.validate_dyn(&FR::new())
+        self.validate_with_fr(&FR::new())
     }
 
-    ///See validate
-    pub fn validate_dyn<FR: ValidateableFramerate>(
+    ///Same as validate, but with a dynamic framerate parameter
+    pub fn validate_with_fr<FR: ValidateableFramerate>(
         &self,
         fr: &FR,
     ) -> Result<Timecode<FR>, TimecodeValidationError> {
@@ -85,11 +85,25 @@ impl UnvalidatedTC {
     pub fn validate_with_warnings<FR: ValidateableFramerate + NewFramerate>(
         &self,
     ) -> Result<(Timecode<FR>, Vec<TimecodeValidationWarning>), TimecodeValidationError> {
-        self.validate_with_warnings_dyn(&FR::new())
+        self.validate_with_warnings_fr(&FR::new())
     }
 
-    ///See validate_with_warnings
-    pub fn validate_with_warnings_dyn<FR: ValidateableFramerate>(
+    ///Same as validate_with_warnings, but with a dynamic framerate parameter
+    ///```
+    ///# use timecode::{framerates::*, DynFramerate};
+    ///let raw_tc = timecode::unvalidated("01:02:00:12").unwrap();
+    ///let framerate: DynFramerate = "25".parse().unwrap();
+    ///
+    ///let (tc, warnings) = raw_tc.validate_with_warnings_fr(&framerate).unwrap();
+    ///assert!(warnings.is_empty());
+    ///
+    ///let framerate: DynFramerate = "29.97".parse().unwrap();
+    ///
+    ///let (tc, warnings) = raw_tc.validate_with_warnings_fr(&framerate).unwrap();
+    ///assert_eq!(tc.to_string(), "01:02:00;12");
+    ///assert!(warnings.contains(&timecode::TimecodeValidationWarning::MismatchSep));
+    ///```
+    pub fn validate_with_warnings_fr<FR: ValidateableFramerate>(
         &self,
         fr: &FR,
     ) -> Result<(Timecode<FR>, Vec<TimecodeValidationWarning>), TimecodeValidationError> {
