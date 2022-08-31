@@ -59,6 +59,19 @@ impl JSTimecode {
     pub fn is_dropframe(&self) -> bool {
         self.0.framerate().is_dropframe()
     }
+
+    pub fn h(&self) -> u8 {
+        self.0.h()
+    }
+    pub fn m(&self) -> u8 {
+        self.0.m()
+    }
+    pub fn s(&self) -> u8 {
+        self.0.s()
+    }
+    pub fn f(&self) -> FrameCount {
+        self.0.f()
+    }
 }
 
 #[wasm_bindgen]
