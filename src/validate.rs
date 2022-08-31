@@ -28,11 +28,11 @@ impl UnvalidatedTC {
     ///
     ///```
     ///# use timecode::parser::UnvalidatedTC;
-    ///use timecode::framerates::NDF30;
+    ///use timecode::framerates::NDF;
     ///
     ///let raw_tc = timecode::unvalidated("01:02:00:25").expect("could not parse string into framerate");
     ///
-    ///let tc = raw_tc.validate::<NDF30>().unwrap();
+    ///let tc = raw_tc.validate::<NDF<30>>().unwrap();
     ///
     ///assert_eq!(tc.to_string(), "01:02:00:25");
     ///assert_eq!(tc.h(), 1);
@@ -75,7 +75,7 @@ impl UnvalidatedTC {
     ///# use timecode::{framerates::*, };
     ///let raw_tc = timecode::unvalidated("01:02:00:25").unwrap();
     ///
-    ///let (tc, warnings) = raw_tc.validate_with_warnings::<NDF30>().unwrap();
+    ///let (tc, warnings) = raw_tc.validate_with_warnings::<NDF<30>>().unwrap();
     ///assert!(warnings.is_empty());
     ///
     ///let (tc, warnings) = raw_tc.validate_with_warnings::<DF2997>().unwrap();
@@ -132,7 +132,7 @@ impl UnvalidatedTC {
     ///have to match.
     ///
     ///```
-    ///# use timecode::framerates::NDF30;
+    ///# use timecode::framerates::NDF;
     ///# use timecode::parser;
     ///# use std::convert::TryInto;
     ///let raw_tc = parser::UnvalidatedTC {
@@ -140,7 +140,7 @@ impl UnvalidatedTC {
     ///    seperator: ';'.try_into().unwrap()
     ///};
     ///
-    ///let tc = unsafe { raw_tc.validate_unchecked::<NDF30>() };
+    ///let tc = unsafe { raw_tc.validate_unchecked::<NDF<30>>() };
     ///
     ///assert_eq!(tc.to_string(), "01:02:00:25");
     ///```

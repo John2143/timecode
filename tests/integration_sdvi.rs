@@ -54,20 +54,20 @@ fn test_sdvi_frame_count_2997() {
 
 #[test]
 fn test_sdvi_frame_count_25() {
-    test_sdvi_frame_count::<NDF25, _>("./tests/sdvi_25.txt");
+    test_sdvi_frame_count::<NDF<25>, _>("./tests/sdvi_25.txt");
 }
 
 #[test]
 fn test_sdvi_frame_count_convert_25_2997() {
-    test_sdvi_frame_convert::<NDF25, DF2997, _>("./tests/sdvi_convert.txt");
+    test_sdvi_frame_convert::<NDF<25>, DF2997, _>("./tests/sdvi_convert.txt");
 }
 
 #[test]
 fn test_sdvi_frame_count_convert_2997_25() {
-    test_sdvi_frame_convert::<DF2997, NDF25, _>("./tests/sdvi_convert_rev.txt");
+    test_sdvi_frame_convert::<DF2997, NDF<25>, _>("./tests/sdvi_convert_rev.txt");
 }
 
 #[test]
 fn test_sdvi_frame_count_convert_50_25() {
-    test_sdvi_frame_convert::<NDF50, NDF25, _>("./tests/sdvi_convert_50.txt");
+    test_sdvi_frame_convert::<NDF<50>, NDF<25>, _>("./tests/sdvi_convert_50.txt");
 }

@@ -31,10 +31,10 @@ fn test_framecount<FR: ValidateableFramerate + NewFramerate>(input: &str, expect
 
 #[test]
 fn test_add_ndf() {
-    add_single_frame::<NDF30>("00:01:02:00", "00:01:02:01");
-    add_single_frame::<NDF30>("00:01:02:29", "00:01:03:00");
-    add_single_frame::<NDF30>("00:01:59:29", "00:02:00:00");
-    add_single_frame::<NDF30>("00:59:59:29", "01:00:00:00");
+    add_single_frame::<NDF<30>>("00:01:02:00", "00:01:02:01");
+    add_single_frame::<NDF<30>>("00:01:02:29", "00:01:03:00");
+    add_single_frame::<NDF<30>>("00:01:59:29", "00:02:00:00");
+    add_single_frame::<NDF<30>>("00:59:59:29", "01:00:00:00");
 }
 
 #[test]
@@ -46,10 +46,10 @@ fn test_add_df() {
 
 #[test]
 fn test_to_frames_for_ndf() {
-    test_framecount::<NDF30>("00:01:02:00", 1860);
-    test_framecount::<NDF30>("00:01:02:29", 1860 + 29);
-    test_framecount::<NDF30>("00:01:59:29", 1860 + 29 + 57 * 30);
-    test_framecount::<NDF30>("00:59:59:29", 59 * 60 * 30 + 59 * 30 + 29);
+    test_framecount::<NDF<30>>("00:01:02:00", 1860);
+    test_framecount::<NDF<30>>("00:01:02:29", 1860 + 29);
+    test_framecount::<NDF<30>>("00:01:59:29", 1860 + 29 + 57 * 30);
+    test_framecount::<NDF<30>>("00:59:59:29", 59 * 60 * 30 + 59 * 30 + 29);
 }
 
 #[test]
@@ -67,14 +67,14 @@ fn test_reversable() {
         let tc: Timecode<DF2997> = Timecode::from_frames(&Frames(count), &DF2997);
         assert_eq!(tc.to_frame_count(), count);
 
-        let tc: Timecode<NDF30> = Timecode::from_frames(&Frames(count), &NDF30);
+        let tc: Timecode<NDF<30>> = Timecode::from_frames(&Frames(count), &NDF::<30>);
         assert_eq!(tc.to_frame_count(), count);
     }
 }
 
 #[test]
 fn test_convert() {
-    let tc: Timecode<NDF30> = "01:00:00:00".parse().unwrap();
+    let tc: Timecode<NDF<30>> = "01:00:00:00".parse().unwrap();
     let tc2 = tc.convert::<DF2997>();
 
     let mut b = SmallString::<[u8; 14]>::new();
@@ -86,7 +86,7 @@ fn test_convert() {
 
 #[test]
 fn test_convert_start() {
-    let tc: Timecode<NDF30> = "01:00:00:00".parse().unwrap();
+    let tc: Timecode<NDF<30>> = "01:00:00:00".parse().unwrap();
     let tc2 = tc.convert_with_start::<DF2997>("01:00:00:00".parse().unwrap());
 
     let mut b = SmallString::<[u8; 14]>::new();
