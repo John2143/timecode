@@ -8,11 +8,7 @@ pub struct JSTimecode(Timecode<DynFramerate>);
 #[wasm_bindgen]
 impl JSTimecode {
     #[wasm_bindgen(constructor)]
-    pub fn new(s: &str, fr: &str) -> Self {
-        Self::with_fr(s, fr).unwrap()
-    }
-
-    pub fn with_fr(s: &str, fr: &str) -> Result<JSTimecode, JsValue> {
+    pub fn new(s: &str, fr: &str) -> Result<JSTimecode, JsValue> {
         let f = Timecode::new_with_fr(s, fr).map_err(|e| JsValue::from_str(&e.to_string()))?;
         Ok(Self(f))
     }
@@ -63,4 +59,12 @@ impl JSTimecode {
     pub fn is_dropframe(&self) -> bool {
         self.0.framerate().is_dropframe()
     }
+}
+
+#[wasm_bindgen]
+extern "C" {
+    #[allow(non_camel_case_types)]
+    type console;
+
+    pub fn log(text: &str);
 }

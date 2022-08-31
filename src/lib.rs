@@ -249,6 +249,8 @@ impl FromStr for DynFramerate {
             "2398" => Ok(NDF2398),
             "24" => Ok(NDF2398),
             "2997" => Ok(DF2997),
+            "29.97" => Ok(DF2997),
+            "23.98" => Ok(NDF2398),
 
             s => match s.parse() {
                 Ok(fr) => Ok(NDFAny(fr)),
@@ -284,6 +286,8 @@ pub enum TimecodeValidationError {
     ///This will never occur when you call `.validate`, as by the time you have an unvalidated
     ///timecode to call `.validate` on, it has already passed the parsing step.
     Unparsed,
+    //Framerate is bad
+    InvalidFramerate,
 }
 
 impl ToString for TimecodeValidationError {
@@ -292,7 +296,8 @@ impl ToString for TimecodeValidationError {
             TimecodeValidationError::InvalidMin => "Invalid minutes".into(),
             TimecodeValidationError::InvalidSec => "Invalid seconds".into(),
             TimecodeValidationError::InvalidFrames => "Invalid frames".into(),
-            TimecodeValidationError::Unparsed => "Unparsed".into(),
+            TimecodeValidationError::Unparsed => "Timecode cannot be parsed".into(),
+            TimecodeValidationError::InvalidFramerate => "Invalid Framerate".into(),
         }
     }
 }
@@ -391,7 +396,9 @@ impl FromStr for Timecode<DynFramerate> {
 impl Timecode<DynFramerate> {
     fn new_with_fr(s: &str, fr: &str) -> Result<Self, TimecodeValidationError> {
         let tc = unvalidated(s).ok_or(TimecodeValidationError::Unparsed)?;
-        let d: DynFramerate = fr.parse().map_err(|_| TimecodeValidationError::Unparsed)?;
+        let d: DynFramerate = fr
+            .parse()
+            .map_err(|_| TimecodeValidationError::InvalidFramerate)?;
 
         tc.validate_dyn(&d)
     }
