@@ -46,9 +46,6 @@ jobs:
     - name: Build for python
       run: make python
 
-    - name: make release
-      run: make release
-
     - name: Build
       run: echo ${{ github.sha }} > Release.txt
 
