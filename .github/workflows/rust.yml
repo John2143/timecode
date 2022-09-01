@@ -72,8 +72,19 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: timecode_js.zip
-        asset_name: timecode_js.zip
+        asset_path: timecode_js_node.zip
+        asset_name: timecode_js_node.zip
+        asset_content_type: application/zip
+    - name: Upload JS Web Assets
+      if: github.ref == 'refs/heads/master'
+      id: upload-release-asset-js-web
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: timecode_js_web.zip
+        asset_name: timecode_js_web.zip
         asset_content_type: application/zip
     - name: Upload python Assets
       if: github.ref == 'refs/heads/master'
