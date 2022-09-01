@@ -1,8 +1,12 @@
 [package]
 name = "timecode"
+description = "SMPTE Timecode library"
 version = "0.1.0"
 authors = ["John Schmidt <john@john2143.com>"]
-edition = "2018"
+edition = "2021"
+license-file = "LICENSE"
+keywords = ["smpte", "timecode", "framerate"]
+repository = "https://github.com/John2143/timecode"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [features]
@@ -18,7 +22,6 @@ crate-type = ["cdylib", "rlib"]
 nom = "7.0.0"
 pyo3 = { version = "0.17.1", features = ["extension-module"], optional = true }
 wasm-bindgen = { version = "0.2.82", optional = true }
-#smallstr = "0.2.0"
 
 [dev-dependencies]
 smallstr = "0.3.0"
