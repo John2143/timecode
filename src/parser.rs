@@ -117,8 +117,7 @@ pub fn timecode_nom(input: &str) -> IResult<&str, UnvalidatedTC> {
 ///   HHH:MM:SS;FFF
 ///   HHH:MM:SS:FFF
 ///
-/// hours and frames must be less than 256
-/// hours and frames can be 2 or 3 characters
+/// hours, minutes, and seconds must be less than 256
 ///
 /// NOTE: may not have any trailing/preceding whitespace. To allow trailing characters, see
 /// [`timecode_nom`]

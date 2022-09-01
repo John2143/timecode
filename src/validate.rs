@@ -1,6 +1,6 @@
 use crate::{
     parser::{Seperator, UnvalidatedTC},
-    FrameCount, Framerate, NewFramerate, Timecode, TimecodeValidationError,
+    ConstFramerate, FrameCount, Framerate, Timecode, TimecodeValidationError,
     TimecodeValidationWarning, ValidateableFramerate,
 };
 
@@ -40,7 +40,7 @@ impl UnvalidatedTC {
     ///assert_eq!(tc.s(), 0);
     ///assert_eq!(tc.f(), 25);
     ///```
-    pub fn validate<FR: ValidateableFramerate + NewFramerate>(
+    pub fn validate<FR: ValidateableFramerate + ConstFramerate>(
         &self,
     ) -> Result<Timecode<FR>, TimecodeValidationError> {
         self.validate_with_fr(&FR::new())
@@ -82,7 +82,7 @@ impl UnvalidatedTC {
     ///assert_eq!(tc.to_string(), "01:02:00;25");
     ///assert!(warnings.contains(&timecode::TimecodeValidationWarning::MismatchSep));
     ///```
-    pub fn validate_with_warnings<FR: ValidateableFramerate + NewFramerate>(
+    pub fn validate_with_warnings<FR: ValidateableFramerate + ConstFramerate>(
         &self,
     ) -> Result<(Timecode<FR>, Vec<TimecodeValidationWarning>), TimecodeValidationError> {
         self.validate_with_warnings_fr(&FR::new())
@@ -144,12 +144,12 @@ impl UnvalidatedTC {
     ///
     ///assert_eq!(tc.to_string(), "01:02:00:25");
     ///```
-    pub unsafe fn validate_unchecked<FR: Framerate + NewFramerate>(&self) -> Timecode<FR> {
-        self.validate_unchecked_dyn(&FR::new())
+    pub unsafe fn validate_unchecked<FR: Framerate + ConstFramerate>(&self) -> Timecode<FR> {
+        self.validate_unchecked_with_fr(&FR::new())
     }
 
     ///see validate_unchecked
-    pub unsafe fn validate_unchecked_dyn<FR: Framerate>(&self, fr: &FR) -> Timecode<FR> {
+    pub unsafe fn validate_unchecked_with_fr<FR: Framerate>(&self, fr: &FR) -> Timecode<FR> {
         let UnvalidatedTC { h, m, s, f, .. } = *self;
 
         Timecode {
@@ -197,7 +197,13 @@ fn helper_v_max_frame<FR: Framerate>(
 }
 
 ///drop frame rules are the same regardless of framerate.
-fn helper_v_drop_frame(m: u8, s: u8, f: FrameCount) -> Result<(), TimecodeValidationError> {
+fn helper_v_drop_frame(
+    _drop_frames: FrameCount,
+    m: u8,
+    s: u8,
+    f: FrameCount,
+) -> Result<(), TimecodeValidationError> {
+    //TODO should this be drop_frames?
     if m % 10 != 0 && s == 0 && f < 2 {
         return Err(TimecodeValidationError::InvalidFrames);
     }
@@ -220,8 +226,8 @@ impl<F: Framerate + Copy> ValidateableFramerate for F {
             .err()
             .map(|e| warnings.add_warning(e));
 
-        if self.is_dropframe() {
-            helper_v_drop_frame(m, s, f)?;
+        if let Some(drop_frames) = self.drop_frames() {
+            helper_v_drop_frame(drop_frames, m, s, f)?;
         }
 
         helper_v_max_frame(f, self)?;
