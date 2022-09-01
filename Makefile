@@ -1,6 +1,6 @@
 # pip3 install maturin
 default: node python
-	cargo b
+	cargo b --release
 
 clean:
 	rm -rf target

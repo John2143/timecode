@@ -37,9 +37,9 @@ jobs:
       run: pip3 install maturin
 
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --verbose --release
     - name: Run tests
-      run: cargo test --verbose
+      run: cargo test --verbose --release
 
     - name: Build for JS
       run: make node
