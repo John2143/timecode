@@ -52,63 +52,19 @@
 
 use std::{convert::TryInto, fmt::Display, str::FromStr};
 
-use parser::UnvalidatedTC;
-
-pub mod parser;
-pub mod validate;
-
+pub mod framerates;
 #[cfg(feature = "javascript")]
 pub mod javascript;
+pub mod parser;
 #[cfg(feature = "python")]
 pub mod python;
+pub mod validate;
 
-pub use parser::unvalidated;
-
-pub mod framerates;
 pub use framerates::*;
+pub use parser::unvalidated;
+pub use validate::ValidateableFramerate;
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
-pub enum TimecodeValidationError {
-    ///The minutes field is invalid
-    InvalidMin,
-    ///The seconds field is invalid
-    InvalidSec,
-    ///The frames field is invalid (can happen because target is drop-frame)
-    InvalidFrames,
-    ///This is the error received when nom fails to parse the timecode.
-    ///This will never occur when you call `.validate`, as by the time you have an unvalidated
-    ///timecode to call `.validate` on, it has already passed the parsing step.
-    Unparsed,
-    //Framerate is bad
-    InvalidFramerate,
-}
-
-impl ToString for TimecodeValidationError {
-    fn to_string(&self) -> String {
-        match self {
-            TimecodeValidationError::InvalidMin => "Invalid minutes".into(),
-            TimecodeValidationError::InvalidSec => "Invalid seconds".into(),
-            TimecodeValidationError::InvalidFrames => "Invalid frames".into(),
-            TimecodeValidationError::Unparsed => "Timecode cannot be parsed".into(),
-            TimecodeValidationError::InvalidFramerate => "Invalid Framerate".into(),
-        }
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
-pub enum TimecodeValidationWarning {
-    MismatchSep,
-}
-
-///Used internally when calling [`UnvalidatedTC::validate`]. If `Ok(())` is returned, the
-///unvalidated timecode will be directly copied into a new [`Timecode`]
-pub trait ValidateableFramerate: Framerate + Copy {
-    fn validate<T: validate::WarningContainer>(
-        &self,
-        input_tc: &UnvalidatedTC,
-        warnings: &mut T,
-    ) -> Result<(), TimecodeValidationError>;
-}
+use validate::TimecodeValidationError;
 
 //24 hours * 60 * 60 * 120 still has lots of room in a u32
 pub type FrameCount = u32;
@@ -159,7 +115,7 @@ impl<FR> Timecode<FR> {
     }
 }
 
-impl<FR: ValidateableFramerate + ConstFramerate> FromStr for Timecode<FR> {
+impl<FR: validate::ValidateableFramerate + ConstFramerate> FromStr for Timecode<FR> {
     type Err = TimecodeValidationError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -180,7 +136,7 @@ impl FromStr for Timecode<DynFramerate> {
 
         let d: DynFramerate = fr_part
             .parse()
-            .map_err(|_| TimecodeValidationError::InvalidFramerate)?;
+            .map_err(|_| TimecodeValidationError::InvalidFramerate(None))?;
 
         tc.validate_with_fr(&d)
     }
@@ -191,25 +147,41 @@ impl Timecode<DynFramerate> {
         let tc = unvalidated(s).ok_or(TimecodeValidationError::Unparsed)?;
         let d: DynFramerate = fr
             .parse()
-            .map_err(|_| TimecodeValidationError::InvalidFramerate)?;
+            .map_err(|_| TimecodeValidationError::InvalidFramerate(None))?;
 
         tc.validate_with_fr(&d)
     }
 }
 
-//Things that can be converted to a frame count
-//
-//Both [`Timecode`] and [`Frames`] implement this.
+///Things that can be converted to a frame count
+///
+///Both [`Timecode`] and [`Frames`] implement this.
 pub trait ToFrames<FR> {
     fn to_frame_count(&self) -> FrameCount;
     fn from_frames(f: &Frames, fr: &FR) -> Self;
 }
 
+///This trait is for converting things between different framerates. It has two types of functions:
+/// `convert` and `convert_with_start` use const framerates.
+///```
+///# use timecode::framerates::*;
+///# use timecode::{Timecode, Convert};
+///
+///let x: Timecode<NDF<30>> = "00:01:02:03".parse().unwrap();
+///let y: Timecode<NDF<25>> = x.convert();
+///
+///let start: Timecode<DF2997> = "01:00:00;00".parse().unwrap();
+///let x: Timecode<DF2997> = "01:01:02;03".parse().unwrap();
+///let y: Timecode<NDF2398> = x.convert_with_start(&start);
+///```
+///
+///If, instead, you have dynamic timecodes, try `convert_with_fr` or `convert_with_start_fr
 pub trait Convert {
     fn convert<DFR: Framerate + ConstFramerate>(&self) -> Timecode<DFR>;
     fn convert_with_fr<DFR: Framerate>(&self, framerate: &DFR) -> Timecode<DFR>;
-    fn convert_with_start<DFR: Framerate + ConstFramerate>(&self, start: Self) -> Timecode<DFR>;
-    fn convert_with_start_fr<DFR: Framerate>(&self, start: Self, framerate: &DFR) -> Timecode<DFR>;
+    fn convert_with_start<DFR: Framerate + ConstFramerate>(&self, start: &Self) -> Timecode<DFR>;
+    fn convert_with_start_fr<DFR: Framerate>(&self, start: &Self, framerate: &DFR)
+        -> Timecode<DFR>;
 }
 
 impl<FR: Framerate> Convert for Timecode<FR> {
@@ -230,14 +202,14 @@ impl<FR: Framerate> Convert for Timecode<FR> {
         Timecode::from_frames(&Frames(new_fr.try_into().expect("Too large")), fr)
     }
 
-    fn convert_with_start<DFR>(&self, start: Self) -> Timecode<DFR>
+    fn convert_with_start<DFR>(&self, start: &Self) -> Timecode<DFR>
     where
         DFR: Framerate + ConstFramerate,
     {
         self.convert_with_start_fr(start, &DFR::new())
     }
 
-    fn convert_with_start_fr<DFR>(&self, start: Self, fr: &DFR) -> Timecode<DFR>
+    fn convert_with_start_fr<DFR>(&self, start: &Self, fr: &DFR) -> Timecode<DFR>
     where
         DFR: Framerate,
     {

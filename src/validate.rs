@@ -1,7 +1,6 @@
 use crate::{
     parser::{Seperator, UnvalidatedTC},
-    ConstFramerate, FrameCount, Framerate, Timecode, TimecodeValidationError,
-    TimecodeValidationWarning, ValidateableFramerate,
+    ConstFramerate, FrameCount, Framerate, Timecode,
 };
 
 type FramerateValidationResult = Result<(), TimecodeValidationError>;
@@ -21,6 +20,57 @@ impl WarningContainer for Vec<TimecodeValidationWarning> {
 
 impl WarningContainer for () {
     fn add_warning(&mut self, _: TimecodeValidationWarning) {}
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum TimecodeValidationError {
+    ///The minutes field is invalid
+    InvalidMin(u8),
+    ///The seconds field is invalid
+    InvalidSec(u8),
+    ///The frames field is invalid (can happen because target is drop-frame)
+    InvalidFrames(FrameCount),
+    ///This is the error received when nom fails to parse the timecode.
+    ///This will never occur when you call `.validate`, as by the time you have an unvalidated
+    ///timecode to call `.validate` on, it has already passed the parsing step.
+    Unparsed,
+    //Framerate is bad
+    InvalidFramerate(Option<f64>),
+}
+
+impl std::fmt::Display for TimecodeValidationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TimecodeValidationError::InvalidMin(n) => write!(f, "Invalid minutes {}", n),
+            TimecodeValidationError::InvalidSec(n) => write!(f, "Invalid seconds {}", n),
+            TimecodeValidationError::InvalidFrames(n) => write!(f, "Invalid frames {}", n),
+            TimecodeValidationError::Unparsed => write!(f, "Timecode cannot be parsed"),
+            TimecodeValidationError::InvalidFramerate(Some(n)) => {
+                write!(f, "Invalid Framerate {n}")
+            }
+            TimecodeValidationError::InvalidFramerate(None) => {
+                write!(f, "Invalid Framerate")
+            }
+        }
+    }
+}
+
+impl std::error::Error for TimecodeValidationError {}
+
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+pub enum TimecodeValidationWarning {
+    ///Expected a ':' where a ';' was found or vice-versa.
+    MismatchSep,
+}
+
+///Used internally when calling [`UnvalidatedTC::validate`]. If `Ok(())` is returned, the
+///unvalidated timecode will be directly copied into a new [`Timecode`]
+pub trait ValidateableFramerate: Framerate + Copy {
+    fn validate<T: WarningContainer>(
+        &self,
+        input_tc: &UnvalidatedTC,
+        warnings: &mut T,
+    ) -> Result<(), TimecodeValidationError>;
 }
 
 impl UnvalidatedTC {
@@ -80,7 +130,7 @@ impl UnvalidatedTC {
     ///
     ///let (tc, warnings) = raw_tc.validate_with_warnings::<DF2997>().unwrap();
     ///assert_eq!(tc.to_string(), "01:02:00;25");
-    ///assert!(warnings.contains(&timecode::TimecodeValidationWarning::MismatchSep));
+    ///assert!(warnings.contains(&timecode::validate::TimecodeValidationWarning::MismatchSep));
     ///```
     pub fn validate_with_warnings<FR: ValidateableFramerate + ConstFramerate>(
         &self,
@@ -101,7 +151,7 @@ impl UnvalidatedTC {
     ///
     ///let (tc, warnings) = raw_tc.validate_with_warnings_fr(&framerate).unwrap();
     ///assert_eq!(tc.to_string(), "01:02:00;12");
-    ///assert!(warnings.contains(&timecode::TimecodeValidationWarning::MismatchSep));
+    ///assert!(warnings.contains(&timecode::validate::TimecodeValidationWarning::MismatchSep));
     ///```
     pub fn validate_with_warnings_fr<FR: ValidateableFramerate>(
         &self,
@@ -164,11 +214,11 @@ impl UnvalidatedTC {
 
 fn helper_v_ms(m: u8, s: u8) -> Result<(), TimecodeValidationError> {
     if m >= 60 {
-        return Err(TimecodeValidationError::InvalidMin);
+        return Err(TimecodeValidationError::InvalidMin(m));
     }
 
     if s >= 60 {
-        return Err(TimecodeValidationError::InvalidSec);
+        return Err(TimecodeValidationError::InvalidSec(s));
     }
 
     Ok(())
@@ -190,7 +240,7 @@ fn helper_v_max_frame<FR: Framerate>(
     fr: &FR,
 ) -> Result<(), TimecodeValidationError> {
     if fr.max_frame() <= f {
-        Err(TimecodeValidationError::InvalidFrames)
+        Err(TimecodeValidationError::InvalidFrames(f))
     } else {
         Ok(())
     }
@@ -205,7 +255,7 @@ fn helper_v_drop_frame(
 ) -> Result<(), TimecodeValidationError> {
     //TODO should this be drop_frames?
     if m % 10 != 0 && s == 0 && f < 2 {
-        return Err(TimecodeValidationError::InvalidFrames);
+        return Err(TimecodeValidationError::InvalidFrames(f));
     }
 
     Ok(())

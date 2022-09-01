@@ -87,7 +87,7 @@ fn test_convert() {
 #[test]
 fn test_convert_start() {
     let tc: Timecode<NDF<30>> = "01:00:00:00".parse().unwrap();
-    let tc2 = tc.convert_with_start::<DF<30>>("01:00:00:00".parse().unwrap());
+    let tc2 = tc.convert_with_start::<DF<30>>(&"01:00:00:00".parse().unwrap());
 
     let mut b = SmallString::<[u8; 14]>::new();
 

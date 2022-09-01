@@ -14,11 +14,17 @@ pub trait ConstFramerate {
     fn new() -> Self;
 }
 
+///29.97 DF (NTSC)
 pub type DF2997 = DF<30>;
+///59.94 DF (NTSC)
 pub type DF5994 = DF<60>;
+///30 NDF
 pub type NDF30 = NDF<30>;
+///25 NDF (PAL)
 pub type NDF25 = NDF<25>;
+///50 NDF (PAL)
 pub type NDF50 = NDF<25>;
+///23.98 NDF like 24fps
 pub type NDF2398 = NDF<24>;
 
 ///dropframe timecodes must be multiples of 29.97, so check that the rounded value is divisible by
