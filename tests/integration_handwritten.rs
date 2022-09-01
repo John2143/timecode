@@ -101,7 +101,7 @@ fn test_convert_symmetry_5994() {
     let bads = [3597, 5395, 7193, 17981, 19781];
     let near_bad = bads
         .iter()
-        .map(|x| ((-100)..100).map(move |n| ((*x as i32) + n) as u32))
+        .map(|x| ((-10)..10).map(move |n| ((*x as i32) + n) as u32))
         .flatten();
 
     for i in near_bad {

@@ -1,7 +1,8 @@
 #![feature(generic_associated_types)]
 #![allow(dead_code)]
-//!This is a correct implementation of SMPTE timecodes used at
-//![`Discovery`](https://github.com/discoveryinc-cs)
+//!This is a library to handle SMPTE timecodes. Most of the library is centered around
+//![`timecode::Timecode`]. `Timecode`s have methods for adding frames, adding other timecodes,
+//!converting to other framerates, inspecting, and comparing.
 //!
 //!# Quickstart
 //!
@@ -446,6 +447,19 @@ impl std::ops::Sub<Frames> for Frames {
     }
 }
 
+impl<FR1> PartialEq<Timecode<FR1>> for Timecode<DynFramerate>
+where
+    FR1: Framerate + ConstFramerate,
+{
+    fn eq(&self, other: &Timecode<FR1>) -> bool {
+        self.h() == other.h()
+            && self.m() == other.m()
+            && self.s() == other.s()
+            && self.f() == other.f()
+            && self.framerate() == other.framerate()
+    }
+}
+
 #[cfg(test)]
 mod add_test {
     use super::*;
@@ -534,5 +548,14 @@ mod add_test {
         let t1: DynFramerate = "30".parse().unwrap();
 
         assert_eq!(t1.max_frame(), 30);
+    }
+
+    #[test]
+    #[ignore]
+    fn compare_timecodes() {
+        //let t1: Timecode<DynFramerate> = "01:10:00:12@30".parse().unwrap();
+        //let t2: Timecode<NDF30> = "01:10:00:12".parse().unwrap();
+
+        //assert_eq!(t2, t1);
     }
 }
