@@ -13,3 +13,7 @@ node:
 	wasm-pack build --target nodejs --features javascript
 web:
 	wasm-pack build --target web --features javascript
+
+release:
+	mv pkg timecode_js
+	zip -r timecode_js.zip timecode_js
