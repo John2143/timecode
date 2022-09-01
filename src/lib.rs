@@ -257,8 +257,8 @@ impl<FR: Framerate> Convert for Timecode<FR> {
         //new = old * (new_fr_num / new_fr_denom) / (old_fr_num / old_fr_denom)
         //new = old * (new_fr_num / new_fr_denom) * (old_fr_denom / old_fr_num)
 
-        let new_fr = count * fr.fr_num() * self.framerate.fr_denom();
-        let new_fr = new_fr / fr.fr_denom() / self.framerate.fr_num();
+        let new_fr = count * fr.fr_num() * self.framerate().fr_denom();
+        let new_fr = new_fr / fr.fr_denom() / self.framerate().fr_num();
 
         Timecode::from_frames(&Frames(new_fr.try_into().expect("Too large")), fr)
     }
@@ -282,7 +282,7 @@ impl<FR: Framerate> Convert for Timecode<FR> {
         }
 
         let new_tc: Timecode<FR> =
-            Timecode::from_frames(&Frames(self_count - start_count), &self.framerate);
+            Timecode::from_frames(&Frames(self_count - start_count), self.framerate());
         let new_tc: Timecode<DFR> = new_tc.convert_with_fr(fr);
 
         let new_start: Timecode<DFR> = start.convert_with_fr(fr);
@@ -332,14 +332,14 @@ fn adjust_frame_count(drop_frames: u32, frame_count: u32) -> u32 {
 impl<FR: Framerate> ToFrames<FR> for Timecode<FR> {
     //This should be inlined after monomorphization so we shouldn't need inline
     fn to_frame_count(&self) -> FrameCount {
-        let max_frame = self.framerate.max_frame() as FrameCount;
+        let max_frame = self.framerate().max_frame() as FrameCount;
         let mut frame_count: FrameCount = 0;
         frame_count += self.h as FrameCount * 60 * 60 * max_frame;
         frame_count += self.m as FrameCount * 60 * max_frame;
         frame_count += self.s as FrameCount * max_frame;
         frame_count += self.f as FrameCount;
 
-        if let Some(drop_frames) = self.framerate.drop_frames() {
+        if let Some(drop_frames) = self.framerate().drop_frames() {
             let minute_count = self.h as FrameCount * 60 + self.m as FrameCount;
             //every 10 minutes, we /dont/ skip a frame. so count the number of times
             //that happens. This should always be <= minute_count or we will panic.
@@ -399,13 +399,11 @@ pub struct FramerateMismatch;
 
 impl<FR: Framerate> Timecode<FR> {
     fn try_add(self, rhs: Timecode<FR>) -> Result<Self, FramerateMismatch> {
-        if self.framerate.fr_num() != rhs.framerate.fr_num()
-            || self.framerate.fr_denom() != rhs.framerate.fr_denom()
-        {
+        if self.framerate() != rhs.framerate() {
             return Err(FramerateMismatch);
         }
         let frames = Frames(self.to_frame_count()) + Frames(rhs.to_frame_count());
-        Ok(Timecode::from_frames(&frames, &self.framerate))
+        Ok(Timecode::from_frames(&frames, self.framerate()))
     }
 }
 
@@ -414,7 +412,7 @@ impl<FR: Framerate> std::ops::Add<Frames> for Timecode<FR> {
 
     fn add(self, rhs: Frames) -> Self::Output {
         let frames = Frames(self.to_frame_count()) + rhs;
-        Timecode::from_frames(&frames, &self.framerate)
+        Timecode::from_frames(&frames, self.framerate())
     }
 }
 
@@ -434,7 +432,7 @@ impl<FR: Framerate> std::ops::Sub<Frames> for Timecode<FR> {
         let frame_count = self.to_frame_count();
         let frames = Frames(frame_count) - rhs;
 
-        Timecode::from_frames(&frames, &self.framerate)
+        Timecode::from_frames(&frames, self.framerate())
     }
 }
 

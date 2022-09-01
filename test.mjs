@@ -1,29 +1,26 @@
-import * as t from "./pkg/timecode.js";
-
-console.log(t);
-console.log(t.JSTimecode);
+import { Timecode } from "./pkg/timecode.js";
 
 console.log("before")
-let x = new t.JSTimecode("00:01:02:03", "25");
+let x = new Timecode("00:01:02:03", "25");
 console.log("after")
 console.log(x);
-console.log(x.ts());
+console.log(x.tc());
 x = x.add_frames(3);
-console.log(x.ts());
+console.log(x.tc());
 console.log(x.frame_count());
-let x2 = new t.JSTimecode("00:00:00:03", "25");
+let x2 = new Timecode("00:00:00:03", "25");
 console.log(x2.frame_count());
 console.log("========");
-let xb = x.convert_to("2398");
-console.log(xb.ts());
+let xb = x.convert_to("23.98");
+console.log(xb.tc());
 console.log(xb.framerate());
 console.log(xb.frame_count());
-console.log(xb.add_frames(1000002).ts());
+console.log(xb.add_frames(1000002).tc());
 console.log(xb.add_frames(1000002).frame_count());
 try{
-console.log(xb.sub_frames(3000).frame_count());
+    console.log(xb.sub_frames(3000).frame_count());
 }catch(e){
-    console.log(e)
+    console.log("Failed to sub frames:", e)
 }
 
-console.log((new t.JSTimecode("01:00:00:04", "60")).frame_count())
+console.log((new Timecode("01:00:00:04", "60")).frame_count())

@@ -1,7 +1,7 @@
 use crate::FrameCount;
 use std::convert::TryFrom;
 
-pub trait Framerate: Copy {
+pub trait Framerate: PartialEq + Copy {
     fn to_sep(&self) -> char;
     fn max_frame(&self) -> FrameCount;
     fn drop_frames(&self) -> Option<FrameCount>;
