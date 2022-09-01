@@ -2,27 +2,25 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
 #[pymodule]
-#[deprecated(note = "Do not use this yet, is it not ready")]
 fn timecode(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
-    m.add_class::<JSTimecode>()?;
+    m.add_class::<Timecode>()?;
     Ok(())
 }
 
-//use crate::Convert;
-//use crate::Framerate;
-use crate::{DynFramerate, FrameCount, Frames, Timecode, ToFrames};
+//rename Timecode to TC because I don't know how to rename a function for pyo3
+use crate::{Convert, DynFramerate, FrameCount, Framerate, Frames, Timecode as TC, ToFrames};
 
 #[pyclass]
 #[derive(Clone)]
-pub struct JSTimecode(Timecode<DynFramerate>);
+pub struct Timecode(TC<DynFramerate>);
 
 #[pymethods]
-impl JSTimecode {
+impl Timecode {
     #[new]
-    pub fn new(s: &str, fr: &str) -> PyResult<JSTimecode> {
+    pub fn new(s: &str, fr: &str) -> PyResult<Timecode> {
         let d: DynFramerate = fr.parse().map_err(|e: &str| PyValueError::new_err(e))?;
-        match Timecode::new_with_fr(s, fr) {
-            Ok(tc) => return Ok(JSTimecode(tc)),
+        match TC::new_with_fr(s, fr) {
+            Ok(tc) => return Ok(Timecode(tc)),
             Err(_) => {}
         };
 
@@ -31,54 +29,56 @@ impl JSTimecode {
             Err(e) => return Err(PyValueError::new_err(e.to_string())),
         };
 
-        let f = Timecode::from_frames(&Frames(frames), &d);
-        Ok(JSTimecode(f))
+        let f = TC::from_frames(&Frames(frames), &d);
+        Ok(Timecode(f))
     }
 
-    //pub fn from_frames(frames: FrameCount, fr: &str) -> PyResult<JSTimecode> {
-    //let d: DynFramerate = fr.parse().map_err(|e: &str| PyValueError::from_str(e))?;
-    //let f = Timecode::from_frames(&Frames(frames), &d);
-    //Ok(Self(f))
-    //}
+    pub fn __str__(&self) -> String {
+        self.ts()
+    }
 
-    //pub fn ts(&self) -> String {
-    //format!("{}", self.0)
-    //}
+    pub fn __repr__(&self) -> String {
+        self.ts()
+    }
 
-    //pub fn add(&self, tc: JSTimecode) -> JSTimecode {
-    //JSTimecode(self.0 + tc.0)
-    //}
+    pub fn ts(&self) -> String {
+        format!("{}", self.0)
+    }
 
-    //pub fn add_frames(&self, frames: FrameCount) -> JSTimecode {
-    //JSTimecode(self.0 + Frames(frames))
-    //}
+    pub fn add(&self, tc: Timecode) -> Timecode {
+        Timecode(self.0 + tc.0)
+    }
 
-    //pub fn sub_frames(&self, frames: FrameCount) -> PyResult<JSTimecode> {
-    //if self.0.to_frame_count() < frames {
-    //return Err(PyValueError::new_err("Not enough frames"));
-    //}
-    //Ok(JSTimecode(self.0 - Frames(frames)))
-    //}
+    pub fn add_frames(&self, frames: FrameCount) -> Timecode {
+        Timecode(self.0 + Frames(frames))
+    }
 
-    //pub fn frame_count(&self) -> FrameCount {
-    //self.0.to_frame_count()
-    //}
+    pub fn sub_frames(&self, frames: FrameCount) -> PyResult<Timecode> {
+        if self.0.to_frame_count() < frames {
+            return Err(PyValueError::new_err("Not enough frames"));
+        }
+        Ok(Timecode(self.0 - Frames(frames)))
+    }
 
-    //pub fn convert_to(&self, fr: &str) -> PyResult<JSTimecode> {
-    //let d: DynFramerate = fr.parse().map_err(|e: &str| PyValueError::new_err(e))?;
-    //Ok(Self(self.0.convert_to_dyn(&d)))
-    //}
+    pub fn frame_count(&self) -> FrameCount {
+        self.0.to_frame_count()
+    }
 
-    //pub fn convert_with_start(&self, fr: &str, start: &JSTimecode) -> PyResult<JSTimecode> {
-    //let d: DynFramerate = fr.parse().map_err(|e: &str| PyValueError::new_err(e))?;
-    //Ok(Self(self.0.convert_with_start_dyn(start.0, &d)))
-    //}
+    pub fn convert_to(&self, fr: &str) -> PyResult<Timecode> {
+        let d: DynFramerate = fr.parse().map_err(|e: &str| PyValueError::new_err(e))?;
+        Ok(Self(self.0.convert_with_fr(&d)))
+    }
 
-    //pub fn framerate(&self) -> String {
-    //format!("{:.3}", self.0.framerate().fr_ratio())
-    //}
+    pub fn convert_with_start(&self, fr: &str, start: &Timecode) -> PyResult<Timecode> {
+        let d: DynFramerate = fr.parse().map_err(|e: &str| PyValueError::new_err(e))?;
+        Ok(Self(self.0.convert_with_start_fr(&start.0, &d)))
+    }
 
-    //pub fn is_dropframe(&self) -> bool {
-    //self.0.framerate().is_dropframe()
-    //}
+    pub fn framerate(&self) -> String {
+        format!("{:.3}", self.0.framerate().fr_ratio())
+    }
+
+    pub fn is_dropframe(&self) -> bool {
+        self.0.framerate().is_dropframe()
+    }
 }
