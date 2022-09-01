@@ -46,5 +46,20 @@ jobs:
     - name: Build for python
       run: make python
 
+    - name: make release
+      run: make release
+
+    - name: Build
+      run: echo ${{ github.sha }} > Release.txt
+
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      if: github.ref == 'refs/heads/master'
+      with:
+        files: |
+          timecode_js.zip
+          ./target/wheels/timecode-0.1.0-cp38-cp38-manylinux_2_28_x86_64.whl
+          Release.txt
+
     #- name: Fuzz
       #run: cargo fuzz run fuzz_target_1

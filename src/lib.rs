@@ -1,21 +1,50 @@
 #![allow(dead_code)]
-//!This is a correct implementation of SMPTE timecodes used at
-//![`Discovery`](https://github.com/discoveryinc-cs)
+//!This is a library to handle SMPTE timecodes. See [`Timecode`].
 //!
 //!# Quickstart
 //!
 //!The fastest way to get started is to parse a timecode directly with [`str::parse`](std::primitive::str::parse).
 //!
 //!```
-//!use timecode::{framerates::*, Timecode};
+//!use timecode::{framerates::*, Timecode, Convert};
 //!
-//!let tc: Timecode<NDF30> = "01:02:00:25".parse().expect("Couldn't convert to NDF30 timecode");
+//!let tc: Timecode<NDF<50>> = "01:02:00:25".parse().expect("Couldn't convert to NDF50 timecode");
 //!
 //!assert_eq!(tc.h(), 1);
 //!assert_eq!(tc.m(), 2);
 //!assert_eq!(tc.s(), 0);
 //!assert_eq!(tc.f(), 25);
 //!assert_eq!(tc.to_string(), "01:02:00:25");
+//!
+//!let converted: Timecode<DF2997> = tc.convert();
+//!assert_eq!(converted.to_string(), "01:02:00;15");
+//!```
+//!
+//!If not all your input are known at compile time, use [`framerates::DynFramerate`]. See also
+//![`Convert`].
+//!```
+//!use timecode::{framerates::*, Timecode, Convert};
+//!
+//!let tc = Timecode::new_with_fr("01:02:15:23", "30").expect("Couldn't convert to NDF30 timecode");
+//!
+//!assert_eq!(tc.framerate().fr_ratio(), 30.0);
+//!assert!(!tc.framerate().is_dropframe());
+//!
+//!
+//!let tc = Timecode::new_with_fr("01:02:15;23", "29.97").expect("Couldn't convert to DF30 timecode");
+//!assert_eq!(tc.framerate(), &DF::<30>);
+//!assert!(tc.framerate().is_dropframe());
+//!
+//!let framerate: DynFramerate = "25".parse().unwrap();
+//!//OR
+//!let framerate = DynFramerate::new_ndf(25);
+//!
+//!//Pass in framerate explicitly
+//!let converted1 = tc.convert_with_fr(&framerate);
+//!//Implicitly get framerate from destination type
+//!let converted2: Timecode<NDF<25>> = tc.convert();
+//!assert_eq!(converted1.to_string(), "01:02:15:19");
+//!assert_eq!(converted2.to_string(), "01:02:15:19");
 //!```
 //!
 //!If you need more control over the initial parsing, [`unvalidated`] can produce an intermediate
@@ -33,7 +62,7 @@
 //!let raw_tc = timecode::unvalidated("01:02:00:25").unwrap();
 //!
 //!//Call validate with your desired framerate to get a Result<Timecode>
-//!let tc = raw_tc.validate::<NDF30>().unwrap();
+//!let tc = raw_tc.validate::<NDF<30>>().unwrap();
 //!
 //!assert_eq!(tc.to_string(), "01:02:00:25");
 //!assert_eq!(tc.h(), 1);
@@ -42,336 +71,32 @@
 //!assert_eq!(tc.f(), 25);
 //!
 //!//01:02:00:25 is not a valid 2398 timecode.
-//!let invalid_tc = raw_tc.validate::<NDF2398>();
+//!let invalid_tc = raw_tc.validate::<NDF<24>>();
 //!assert!(invalid_tc.is_err());
 //!
 //!//Dropframe invariants are also checked.
-//!let invalid_tc = timecode::unvalidated("01:02:00;01").unwrap().validate::<DF2997>();
+//!let invalid_tc = timecode::unvalidated("01:02:00;01").unwrap().validate::<DF<30>>();
 //!assert!(invalid_tc.is_err());
 //!```
 
 use std::{convert::TryInto, fmt::Display, str::FromStr};
 
-use parser::UnvalidatedTC;
-
-pub mod parser;
-pub mod validate;
-
+pub mod framerates;
 #[cfg(feature = "javascript")]
 pub mod javascript;
+pub mod parser;
 #[cfg(feature = "python")]
 pub mod python;
+pub mod validate;
 
+pub use framerates::*;
 pub use parser::unvalidated;
+pub use validate::ValidateableFramerate;
 
-macro_rules! framerate_impl {
-    ($i: ident = $rep: expr, $sep: expr, $max_frame: expr, df = $is_dropframe: expr, $fr_num: expr ; $fr_den: expr, ) => {
-        #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-        pub struct $i;
-
-        impl crate::NewFramerate for $i {
-            fn new() -> Self {
-                $i
-            }
-        }
-
-        impl crate::Framerate for $i {
-            #[inline]
-            fn to_str(&self) -> &'static str {
-                $rep
-            }
-
-            fn to_sep(&self) -> char {
-                $sep
-            }
-
-            fn max_frame(&self) -> crate::FrameCount {
-                $max_frame
-            }
-
-            fn is_dropframe(&self) -> bool {
-                $is_dropframe
-            }
-
-            fn fr_ratio(&self) -> f32 {
-                self.fr_num() as f32 / self.fr_denom() as f32
-            }
-
-            fn fr_num(&self) -> u64 {
-                $fr_num
-            }
-
-            fn fr_denom(&self) -> u64 {
-                $fr_den
-            }
-        }
-    };
-}
-
-pub mod framerates {
-    framerate_impl! {
-        NDF30 = "30",
-        ':', 30, df = false,
-        30000 ; 1000,
-    }
-    framerate_impl! {
-        NDF2398 = "23.98",
-        ':', 24, df = false,
-        24000 ; 1000,
-    }
-    framerate_impl! {
-        NDF25 = "25",
-        ':', 25, df = false,
-        25000 ; 1000,
-    }
-    framerate_impl! {
-        NDF50 = "50",
-        ':', 50, df = false,
-        50000 ; 1000,
-    }
-
-    framerate_impl! {
-        DF2997 = "29.97",
-        ';', 30, df = true,
-        30000 ; 1001,
-    }
-
-    framerate_impl! {
-        DF5994 = "59.94",
-        ';', 30, df = true,
-        30000 ; 1001,
-    }
-
-    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-    pub struct NDFAny(pub crate::FrameCount);
-
-    impl crate::NewFramerate for NDFAny {
-        fn new() -> Self {
-            panic!("Cannot impl an NDFAny without explicit framerate");
-        }
-    }
-
-    impl crate::Framerate for NDFAny {
-        #[inline]
-        fn to_str(&self) -> &'static str {
-            "(dyn)"
-        }
-
-        fn to_sep(&self) -> char {
-            ':'
-        }
-
-        fn max_frame(&self) -> crate::FrameCount {
-            self.0 //TODO
-        }
-
-        fn is_dropframe(&self) -> bool {
-            false
-        }
-
-        fn fr_ratio(&self) -> f32 {
-            self.fr_num() as f32 / self.fr_denom() as f32
-        }
-
-        fn fr_num(&self) -> u64 {
-            (self.0 as u64) * 1000
-        }
-
-        fn fr_denom(&self) -> u64 {
-            1000
-        }
-    }
-}
-
-use framerates::*;
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum DynFramerate {
-    DF2997,
-    DF5994,
-    NDFAny(FrameCount),
-}
-
-impl Framerate for DynFramerate {
-    fn to_str(&self) -> &'static str {
-        "(dyn)"
-    }
-
-    fn to_sep(&self) -> char {
-        match self {
-            DynFramerate::DF2997 => DF2997.to_sep(),
-            DynFramerate::DF5994 => DF5994.to_sep(),
-            DynFramerate::NDFAny(_) => ':',
-        }
-    }
-
-    fn max_frame(&self) -> FrameCount {
-        match self {
-            DynFramerate::DF2997 => DF2997.max_frame(),
-            DynFramerate::DF5994 => DF5994.max_frame(),
-            DynFramerate::NDFAny(n) => NDFAny(*n).max_frame(),
-        }
-    }
-
-    fn is_dropframe(&self) -> bool {
-        match self {
-            DynFramerate::DF2997 => DF2997.is_dropframe(),
-            DynFramerate::DF5994 => DF5994.is_dropframe(),
-            DynFramerate::NDFAny(n) => NDFAny(*n).is_dropframe(),
-        }
-    }
-
-    fn fr_ratio(&self) -> f32 {
-        match self {
-            DynFramerate::DF2997 => DF2997.fr_ratio(),
-            DynFramerate::DF5994 => DF5994.fr_ratio(),
-            DynFramerate::NDFAny(n) => NDFAny(*n).fr_ratio(),
-        }
-    }
-
-    fn fr_num(&self) -> u64 {
-        match self {
-            DynFramerate::DF2997 => DF2997.fr_num(),
-            DynFramerate::DF5994 => DF5994.fr_num(),
-            DynFramerate::NDFAny(n) => NDFAny(*n).fr_num(),
-        }
-    }
-
-    fn fr_denom(&self) -> u64 {
-        match self {
-            DynFramerate::DF2997 => DF2997.fr_denom(),
-            DynFramerate::DF5994 => DF5994.fr_denom(),
-            DynFramerate::NDFAny(n) => NDFAny(*n).fr_denom(),
-        }
-    }
-}
-
-impl FromStr for DynFramerate {
-    type Err = &'static str;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        use DynFramerate::*;
-
-        //if it can be parsed as an integer, assume it is NDF
-        if let Ok(fr) = s.parse() {
-            return Ok(NDFAny(fr));
-        }
-
-        let special_framerates = [(29.97, DF2997), (23.98, NDFAny(24)), (59.94, DF5994)];
-        if let Ok(float) = s.parse::<f64>() {
-            const EPISILON: f64 = 0.01;
-
-            //If it can be parsed as a float, see if it is near a whole number
-            if (float - float.round()).abs() < EPISILON {
-                return Ok(NDFAny(float.round() as _));
-            }
-
-            //Or if it is a special framerate
-            for (fr, s) in special_framerates {
-                if (float - fr).abs() < EPISILON {
-                    return Ok(s);
-                }
-            }
-        }
-
-        Err("No known dropframe timecode")
-    }
-}
-
-#[cfg(test)]
-mod read_fr_tests {
-    use crate::DynFramerate;
-
-    #[test]
-    fn read_int() {
-        let s: DynFramerate = "25".parse().unwrap();
-        assert_eq!(s, DynFramerate::NDFAny(25));
-    }
-
-    #[test]
-    fn read_float() {
-        let s: DynFramerate = "25.00".parse().unwrap();
-        assert_eq!(s, DynFramerate::NDFAny(25));
-    }
-
-    #[test]
-    fn read_float_df() {
-        let s: DynFramerate = "29.97".parse().unwrap();
-        assert_eq!(s, DynFramerate::DF2997);
-    }
-
-    #[test]
-    fn read_float_ndf_special() {
-        let s: DynFramerate = "23.98".parse().unwrap();
-        assert_eq!(s, DynFramerate::NDFAny(24));
-    }
-
-    #[test]
-    fn read_fr_high() {
-        let s: DynFramerate = "239.99".parse().unwrap();
-        assert_eq!(s, DynFramerate::NDFAny(240));
-    }
-}
-
-pub trait Framerate: Copy {
-    fn to_str(&self) -> &'static str;
-    fn to_sep(&self) -> char;
-    fn max_frame(&self) -> FrameCount;
-    fn is_dropframe(&self) -> bool;
-    fn fr_ratio(&self) -> f32;
-    fn fr_num(&self) -> u64;
-    fn fr_denom(&self) -> u64;
-}
-
-pub trait NewFramerate {
-    fn new() -> Self;
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
-pub enum TimecodeValidationError {
-    ///The minutes field is invalid
-    InvalidMin,
-    ///The seconds field is invalid
-    InvalidSec,
-    ///The frames field is invalid (can happen because target is drop-frame)
-    InvalidFrames,
-    ///This is the error received when nom fails to parse the timecode.
-    ///This will never occur when you call `.validate`, as by the time you have an unvalidated
-    ///timecode to call `.validate` on, it has already passed the parsing step.
-    Unparsed,
-    //Framerate is bad
-    InvalidFramerate,
-}
-
-impl ToString for TimecodeValidationError {
-    fn to_string(&self) -> String {
-        match self {
-            TimecodeValidationError::InvalidMin => "Invalid minutes".into(),
-            TimecodeValidationError::InvalidSec => "Invalid seconds".into(),
-            TimecodeValidationError::InvalidFrames => "Invalid frames".into(),
-            TimecodeValidationError::Unparsed => "Timecode cannot be parsed".into(),
-            TimecodeValidationError::InvalidFramerate => "Invalid Framerate".into(),
-        }
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
-pub enum TimecodeValidationWarning {
-    MismatchSep,
-}
-
-///Used internally when calling [`UnvalidatedTC::validate`]. If `Ok(())` is returned, the
-///unvalidated timecode will be directly copied into a new [`Timecode`]
-pub trait ValidateableFramerate: Framerate + Copy {
-    fn validate<T: validate::WarningContainer>(
-        &self,
-        input_tc: &UnvalidatedTC,
-        warnings: &mut T,
-    ) -> Result<(), TimecodeValidationError>;
-}
+use validate::TimecodeValidationError;
 
 //24 hours * 60 * 60 * 120 still has lots of room in a u32
-type FrameCount = u32;
+pub type FrameCount = u32;
 
 #[derive(Copy, Debug, Eq, PartialEq, Clone)]
 #[repr(transparent)]
@@ -419,7 +144,7 @@ impl<FR> Timecode<FR> {
     }
 }
 
-impl<FR: ValidateableFramerate + NewFramerate> FromStr for Timecode<FR> {
+impl<FR: validate::ValidateableFramerate + ConstFramerate> FromStr for Timecode<FR> {
     type Err = TimecodeValidationError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -440,40 +165,87 @@ impl FromStr for Timecode<DynFramerate> {
 
         let d: DynFramerate = fr_part
             .parse()
-            .map_err(|_| TimecodeValidationError::Unparsed)?;
+            .map_err(|_| TimecodeValidationError::InvalidFramerate(None))?;
 
         tc.validate_with_fr(&d)
     }
 }
 
 impl Timecode<DynFramerate> {
-    fn new_with_fr(s: &str, fr: &str) -> Result<Self, TimecodeValidationError> {
-        let tc = unvalidated(s).ok_or(TimecodeValidationError::Unparsed)?;
-        let d: DynFramerate = fr
+    ///Construct a `Timecode<DynFramerate>` with timecode and famerate as string inputs
+    pub fn new_with_fr(timecode: &str, framerate: &str) -> Result<Self, TimecodeValidationError> {
+        let tc = unvalidated(timecode).ok_or(TimecodeValidationError::Unparsed)?;
+        let d: DynFramerate = framerate
             .parse()
-            .map_err(|_| TimecodeValidationError::InvalidFramerate)?;
+            .map_err(|_| TimecodeValidationError::InvalidFramerate(None))?;
 
         tc.validate_with_fr(&d)
     }
 }
 
-//Things that can be converted to a frame count
-//
-//Both [`Timecode`] and [`Frames`] implement this.
+///Things that can be converted to a frame count
+///
+///Both [`Timecode`] and [`Frames`] implement this.
 pub trait ToFrames<FR> {
     fn to_frame_count(&self) -> FrameCount;
     fn from_frames(f: &Frames, fr: &FR) -> Self;
 }
 
+///This trait is for converting things between different framerates. It has two types of functions:
+/// `convert` and `convert_with_start` use const framerates.
+///```
+///# use timecode::framerates::*;
+///# use timecode::{Timecode, Convert};
+///
+///let x: Timecode<NDF<30>> = "00:01:02:03".parse().unwrap();
+///let y: Timecode<NDF<25>> = x.convert();
+///assert_eq!(y.to_string(), "00:01:02:02");
+///
+///let start: Timecode<DF2997> = "01:00:00;00".parse().unwrap();
+///let x: Timecode<DF2997> = "01:01:02;27".parse().unwrap();
+///let y: Timecode<NDF2398> = x.convert_with_start(&start);
+///assert_eq!(y.to_string(), "01:01:02:20");
+///
+///let y_wrong: Timecode<NDF2398> = x.convert();
+///assert_eq!(y_wrong.to_string(), "01:01:02:21");
+///```
+///
+///If, instead, you have dynamic timecodes, try `convert_with_fr` or `convert_with_start_fr`
+///```
+///# use timecode::framerates::*;
+///# use timecode::{Timecode, Convert, unvalidated};
+///
+///let x: Timecode<DynFramerate> = "00:01:02:03@30".parse().unwrap();
+///let y: Timecode<DynFramerate> = x.convert_with_fr(&DynFramerate::new_ndf(25));
+///assert_eq!(y.to_string(), "00:01:02:02");
+///assert_eq!(y.framerate(), &DynFramerate::new_ndf(25));
+///
+///let start = Timecode::new_with_fr("01:00:00;00", "29.97").unwrap();
+///let x = Timecode::new_with_fr("01:01:02;27", "29.97").unwrap();
+///let y1 = x.convert_with_start_fr(&start, &DynFramerate::new_ndf(24));
+///assert_eq!(y1.to_string(), "01:01:02:20");
+///assert_eq!(y1.framerate().fr_ratio(), 24.0);
+///let y2: Timecode<NDF<24>> = x.convert_with_start(&start);
+///assert_eq!(y2.to_string(), "01:01:02:20");
+///assert_eq!(y2.framerate().fr_ratio(), 24.0);
+///assert_eq!(y1.framerate(), y2.framerate());
+///
+///let y_wrong: Timecode<NDF2398> = x.convert();
+///assert_eq!(y_wrong.to_string(), "01:01:02:21");
+///```
 pub trait Convert {
-    fn convert<DFR: Framerate + NewFramerate>(&self) -> Timecode<DFR>;
+    //TODO: When HKT/GATs are merged, make this a GAT
+    //type Output<DFR>;
+    fn convert<DFR: Framerate + ConstFramerate>(&self) -> Timecode<DFR>;
     fn convert_with_fr<DFR: Framerate>(&self, framerate: &DFR) -> Timecode<DFR>;
-    fn convert_with_start<DFR: Framerate + NewFramerate>(&self, start: Self) -> Timecode<DFR>;
-    fn convert_with_start_fr<DFR: Framerate>(&self, start: Self, framerate: &DFR) -> Timecode<DFR>;
+    fn convert_with_start<DFR: Framerate + ConstFramerate>(&self, start: &Self) -> Timecode<DFR>;
+    fn convert_with_start_fr<DFR: Framerate>(&self, start: &Self, framerate: &DFR)
+        -> Timecode<DFR>;
 }
-
 impl<FR: Framerate> Convert for Timecode<FR> {
-    fn convert<DFR: Framerate + NewFramerate>(&self) -> Timecode<DFR> {
+    //type Output<DFR> = Timecode<DFR>;
+
+    fn convert<DFR: Framerate + ConstFramerate>(&self) -> Timecode<DFR> {
         self.convert_with_fr(&DFR::new())
     }
 
@@ -484,20 +256,20 @@ impl<FR: Framerate> Convert for Timecode<FR> {
         //new = old * (new_fr_num / new_fr_denom) / (old_fr_num / old_fr_denom)
         //new = old * (new_fr_num / new_fr_denom) * (old_fr_denom / old_fr_num)
 
-        let new_fr = count * fr.fr_num() * self.framerate.fr_denom();
-        let new_fr = new_fr / fr.fr_denom() / self.framerate.fr_num();
+        let new_fr = count * fr.fr_num() * self.framerate().fr_denom();
+        let new_fr = new_fr / fr.fr_denom() / self.framerate().fr_num();
 
         Timecode::from_frames(&Frames(new_fr.try_into().expect("Too large")), fr)
     }
 
-    fn convert_with_start<DFR>(&self, start: Self) -> Timecode<DFR>
+    fn convert_with_start<DFR>(&self, start: &Self) -> Timecode<DFR>
     where
-        DFR: Framerate + NewFramerate,
+        DFR: Framerate + ConstFramerate,
     {
         self.convert_with_start_fr(start, &DFR::new())
     }
 
-    fn convert_with_start_fr<DFR>(&self, start: Self, fr: &DFR) -> Timecode<DFR>
+    fn convert_with_start_fr<DFR>(&self, start: &Self, fr: &DFR) -> Timecode<DFR>
     where
         DFR: Framerate,
     {
@@ -509,7 +281,7 @@ impl<FR: Framerate> Convert for Timecode<FR> {
         }
 
         let new_tc: Timecode<FR> =
-            Timecode::from_frames(&Frames(self_count - start_count), &self.framerate);
+            Timecode::from_frames(&Frames(self_count - start_count), self.framerate());
         let new_tc: Timecode<DFR> = new_tc.convert_with_fr(fr);
 
         let new_start: Timecode<DFR> = start.convert_with_fr(fr);
@@ -518,28 +290,61 @@ impl<FR: Framerate> Convert for Timecode<FR> {
     }
 }
 
+/*
+ * https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/timecode.c
+ * int av_timecode_adjust_ntsc_framenum2(int framenum, int fps)
+ * {
+ *     /* only works for multiples of NTSC 29.97 */
+ *     int drop_frames = 0;
+ *     int d, m, frames_per_10mins;
+ *
+ *     if (fps && fps % 30 == 0) {
+ *         drop_frames = fps / 30 * 2;
+ *         frames_per_10mins = fps / 30 * 17982;
+ *     } else
+ *         return framenum;
+ *
+ *     d = framenum / frames_per_10mins;
+ *     m = framenum % frames_per_10mins;
+ *
+ *     return framenum + 9U * drop_frames * d + drop_frames * ((m - drop_frames) / (frames_per_10mins / 10));
+ * }
+ */
+
 //simple function to give division with remainder.
 fn div_rem(a: FrameCount, b: FrameCount) -> (FrameCount, FrameCount) {
     (a / b, a % b)
 }
 
+fn adjust_frame_count(drop_frames: u32, frame_count: u32) -> u32 {
+    let frames_per_10_mins = drop_frames * (17982 / 2);
+    let (d, mut m) = div_rem(frame_count, frames_per_10_mins);
+
+    if m < drop_frames {
+        m += drop_frames;
+    }
+
+    frame_count
+        + 9 * drop_frames * d
+        + drop_frames * ((m - drop_frames) / (frames_per_10_mins / 10))
+}
+
 impl<FR: Framerate> ToFrames<FR> for Timecode<FR> {
     //This should be inlined after monomorphization so we shouldn't need inline
     fn to_frame_count(&self) -> FrameCount {
-        let max_frame = self.framerate.max_frame() as FrameCount;
+        let max_frame = self.framerate().max_frame() as FrameCount;
         let mut frame_count: FrameCount = 0;
         frame_count += self.h as FrameCount * 60 * 60 * max_frame;
         frame_count += self.m as FrameCount * 60 * max_frame;
         frame_count += self.s as FrameCount * max_frame;
         frame_count += self.f as FrameCount;
 
-        if self.framerate.is_dropframe() {
+        if let Some(drop_frames) = self.framerate().drop_frames() {
             let minute_count = self.h as FrameCount * 60 + self.m as FrameCount;
-            let frames_lost_per_skip = 2;
             //every 10 minutes, we /dont/ skip a frame. so count the number of times
             //that happens. This should always be <= minute_count or we will panic.
             let dropskip_count = minute_count / 10;
-            frame_count -= (minute_count - dropskip_count) * frames_lost_per_skip;
+            frame_count -= (minute_count - dropskip_count) * drop_frames;
         }
 
         frame_count
@@ -547,16 +352,10 @@ impl<FR: Framerate> ToFrames<FR> for Timecode<FR> {
 
     fn from_frames(&Frames(mut frame_count): &Frames, fr: &FR) -> Self {
         let max_frame = fr.max_frame() as FrameCount;
-        if fr.fr_num() == 30000 && fr.fr_denom() == 1001 {
-            //17982 = 29.97 * 60 * 10
-            let (d, mut m) = div_rem(frame_count, 17982);
-            if m < 2 {
-                m += 2;
-            }
-            frame_count += 18 * d + 2 * ((m - 2) / 1798)
-        } else if fr.is_dropframe() {
-            panic!("Dropframe logic for non-29.97 not implemented");
-        }
+
+        if let Some(drop_frames) = fr.drop_frames() {
+            frame_count = adjust_frame_count(drop_frames, frame_count);
+        };
 
         let f = (frame_count % max_frame) as FrameCount;
         frame_count /= max_frame;
@@ -600,13 +399,11 @@ pub struct FramerateMismatch;
 
 impl<FR: Framerate> Timecode<FR> {
     fn try_add(self, rhs: Timecode<FR>) -> Result<Self, FramerateMismatch> {
-        if self.framerate.fr_num() != rhs.framerate.fr_num()
-            || self.framerate.fr_denom() != rhs.framerate.fr_denom()
-        {
+        if self.framerate() != rhs.framerate() {
             return Err(FramerateMismatch);
         }
         let frames = Frames(self.to_frame_count()) + Frames(rhs.to_frame_count());
-        Ok(Timecode::from_frames(&frames, &self.framerate))
+        Ok(Timecode::from_frames(&frames, self.framerate()))
     }
 }
 
@@ -615,7 +412,7 @@ impl<FR: Framerate> std::ops::Add<Frames> for Timecode<FR> {
 
     fn add(self, rhs: Frames) -> Self::Output {
         let frames = Frames(self.to_frame_count()) + rhs;
-        Timecode::from_frames(&frames, &self.framerate)
+        Timecode::from_frames(&frames, self.framerate())
     }
 }
 
@@ -635,7 +432,7 @@ impl<FR: Framerate> std::ops::Sub<Frames> for Timecode<FR> {
         let frame_count = self.to_frame_count();
         let frames = Frames(frame_count) - rhs;
 
-        Timecode::from_frames(&frames, &self.framerate)
+        Timecode::from_frames(&frames, self.framerate())
     }
 }
 
@@ -649,24 +446,36 @@ impl std::ops::Sub<Frames> for Frames {
     }
 }
 
+impl<FR1> PartialEq<Timecode<FR1>> for Timecode<DynFramerate>
+where
+    FR1: Framerate + ConstFramerate,
+{
+    fn eq(&self, other: &Timecode<FR1>) -> bool {
+        self.h() == other.h()
+            && self.m() == other.m()
+            && self.s() == other.s()
+            && self.f() == other.f()
+            && self.framerate() == other.framerate()
+    }
+}
+
 #[cfg(test)]
 mod add_test {
     use super::*;
-    use crate::framerates::NDF30;
 
     #[test]
     fn add_compiles() {
-        let t1: Timecode<NDF30> = "01:10:00:12".parse().unwrap();
-        let t2: Timecode<NDF30> = "00:00:00:01".parse().unwrap();
+        let t1: Timecode<NDF<30>> = "01:10:00:12".parse().unwrap();
+        let t2: Timecode<NDF<30>> = "00:00:00:01".parse().unwrap();
 
         let _ = t1 + t2;
     }
 
     #[test]
     fn add_frames_compiles() {
-        let t1: Timecode<NDF30> = "01:10:00:12".parse().unwrap();
+        let t1: Timecode<NDF<30>> = "01:10:00:12".parse().unwrap();
 
-        let _ = t1 + Frames(10);
+        let t1 = t1 + Frames(10);
         let _ = t1 + Frames(10);
     }
 
@@ -677,7 +486,7 @@ mod add_test {
 
     #[test]
     fn to_frames() {
-        let t1: Timecode<NDF30> = "00:00:01:12".parse().unwrap();
+        let t1: Timecode<NDF<30>> = "00:00:01:12".parse().unwrap();
 
         let f = t1.to_frame_count();
 
@@ -686,9 +495,9 @@ mod add_test {
 
     #[test]
     fn add_tcs() {
-        let t1: Timecode<NDF30> = "01:10:00:12".parse().unwrap();
-        let t2: Timecode<NDF30> = "01:01:01:01".parse().unwrap();
-        let t3: Timecode<NDF30> = "02:11:01:13".parse().unwrap();
+        let t1: Timecode<NDF<30>> = "01:10:00:12".parse().unwrap();
+        let t2: Timecode<NDF<30>> = "01:01:01:01".parse().unwrap();
+        let t3: Timecode<NDF<30>> = "02:11:01:13".parse().unwrap();
 
         assert_eq!(t1 + t2, t3);
     }
@@ -713,9 +522,39 @@ mod add_test {
     }
 
     #[test]
+    fn size_of_dyn_larger() {
+        let t1: Timecode<DynFramerate> = "01:10:00:12@30".parse().unwrap();
+        let t2: Timecode<NDF<30>> = "01:10:00:12".parse().unwrap();
+
+        let a = std::mem::size_of_val(&t1);
+        let b = std::mem::size_of_val(&t2);
+
+        dbg!(a, b, t1, t2);
+
+        assert!(a > b);
+    }
+
+    #[test]
+    fn dyn_downcast() {
+        let t1: Timecode<DynFramerate> = "01:10:00:12@30".parse().unwrap();
+        let tf = *t1.framerate();
+        let _: NDF<30> = tf.try_into().unwrap();
+        let _ = TryInto::<NDF<25>>::try_into(tf).unwrap_err();
+    }
+
+    #[test]
     fn dyn_impl_fr() {
         let t1: DynFramerate = "30".parse().unwrap();
 
         assert_eq!(t1.max_frame(), 30);
+    }
+
+    #[test]
+    #[ignore]
+    fn compare_timecodes() {
+        //let t1: Timecode<DynFramerate> = "01:10:00:12@30".parse().unwrap();
+        //let t2: Timecode<NDF30> = "01:10:00:12".parse().unwrap();
+
+        //assert_eq!(t2, t1);
     }
 }

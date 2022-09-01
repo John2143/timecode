@@ -3,10 +3,10 @@ use wasm_bindgen::prelude::*;
 use crate::{Convert, DynFramerate, FrameCount, Framerate, Frames, Timecode, ToFrames};
 
 ///An immutable timecode object
-#[wasm_bindgen]
+#[wasm_bindgen(js_name = "Timecode")]
 pub struct JSTimecode(Timecode<DynFramerate>);
 
-#[wasm_bindgen]
+#[wasm_bindgen(js_class = "Timecode")]
 impl JSTimecode {
     ///Construct a new timecode from timecode and framerate
     #[wasm_bindgen(constructor)]
@@ -24,7 +24,7 @@ impl JSTimecode {
     }
 
     ///Display timecode as string
-    pub fn ts(&self) -> String {
+    pub fn tc(&self) -> String {
         format!("{}", self.0)
     }
 
@@ -66,7 +66,7 @@ impl JSTimecode {
         start: &JSTimecode,
     ) -> Result<JSTimecode, JsValue> {
         let d: DynFramerate = framerate.parse().map_err(|e: &str| JsValue::from_str(e))?;
-        Ok(Self(self.0.convert_with_start_fr(start.0, &d)))
+        Ok(Self(self.0.convert_with_start_fr(&start.0, &d)))
     }
 
     ///Return the framerate (calculated by framerate ratio)
