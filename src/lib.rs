@@ -1,4 +1,3 @@
-#![feature(generic_associated_types)]
 #![allow(dead_code)]
 //!This is a library to handle SMPTE timecodes. See [`Timecode`].
 //!
