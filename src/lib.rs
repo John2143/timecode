@@ -291,6 +291,7 @@ impl<FR: Framerate> Convert for Timecode<FR> {
 }
 
 /*
+ * https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/timecode.c
  * int av_timecode_adjust_ntsc_framenum2(int framenum, int fps)
  * {
  *     /* only works for multiples of NTSC 29.97 */
