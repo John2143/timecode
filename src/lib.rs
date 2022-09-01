@@ -67,19 +67,6 @@ pub use parser::unvalidated;
 pub mod framerates;
 pub use framerates::*;
 
-pub trait Framerate: Copy {
-    fn to_sep(&self) -> char;
-    fn max_frame(&self) -> FrameCount;
-    fn drop_frames(&self) -> Option<FrameCount>;
-    fn fr_ratio(&self) -> f32;
-    fn fr_num(&self) -> u64;
-    fn fr_denom(&self) -> u64;
-}
-
-pub trait ConstFramerate {
-    fn new() -> Self;
-}
-
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum TimecodeValidationError {
     ///The minutes field is invalid
@@ -506,8 +493,9 @@ mod add_test {
     #[test]
     fn dyn_downcast() {
         let t1: Timecode<DynFramerate> = "01:10:00:12@30".parse().unwrap();
-        let _: NDF<30> = t1.framerate().try_into().unwrap();
-        let _ = TryInto::<NDF<25>>::try_into(t1.framerate()).unwrap_err();
+        let tf = *t1.framerate();
+        let _: NDF<30> = tf.try_into().unwrap();
+        let _ = TryInto::<NDF<25>>::try_into(tf).unwrap_err();
     }
 
     #[test]
