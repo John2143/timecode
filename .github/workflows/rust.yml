@@ -43,6 +43,8 @@ jobs:
 
     - name: Build for JS
       run: make node
+    - name: Build for JS web
+      run: make web
     - name: Build for python
       run: make python
 
