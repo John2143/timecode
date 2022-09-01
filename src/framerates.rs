@@ -8,6 +8,9 @@ pub trait Framerate: Copy {
     fn fr_ratio(&self) -> f32;
     fn fr_num(&self) -> u64;
     fn fr_denom(&self) -> u64;
+    fn is_dropframe(&self) -> bool {
+        self.drop_frames().is_some()
+    }
 }
 
 pub trait ConstFramerate {

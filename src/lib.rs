@@ -8,15 +8,45 @@
 //!The fastest way to get started is to parse a timecode directly with [`str::parse`](std::primitive::str::parse).
 //!
 //!```
-//!use timecode::{framerates::*, Timecode};
+//!use timecode::{framerates::*, Timecode, Convert};
 //!
-//!let tc: Timecode<NDF<30>> = "01:02:00:25".parse().expect("Couldn't convert to NDF30 timecode");
+//!let tc: Timecode<NDF<50>> = "01:02:00:25".parse().expect("Couldn't convert to NDF50 timecode");
 //!
 //!assert_eq!(tc.h(), 1);
 //!assert_eq!(tc.m(), 2);
 //!assert_eq!(tc.s(), 0);
 //!assert_eq!(tc.f(), 25);
 //!assert_eq!(tc.to_string(), "01:02:00:25");
+//!
+//!let converted: Timecode<DF2997> = tc.convert();
+//!assert_eq!(converted.to_string(), "01:02:00;15");
+//!```
+//!
+//!If not all your input are known at compile time, use [`framerates::DynFramerate`]. See also
+//![`Convert`].
+//!```
+//!use timecode::{framerates::*, Timecode, Convert};
+//!
+//!let tc = Timecode::new_with_fr("01:02:15:23", "30").expect("Couldn't convert to NDF30 timecode");
+//!
+//!assert_eq!(tc.framerate().fr_ratio(), 30.0);
+//!assert!(!tc.framerate().is_dropframe());
+//!
+//!
+//!let tc = Timecode::new_with_fr("01:02:15;23", "29.97").expect("Couldn't convert to DF30 timecode");
+//!assert_eq!(tc.framerate(), &DF::<30>);
+//!assert!(tc.framerate().is_dropframe());
+//!
+//!let framerate: DynFramerate = "25".parse().unwrap();
+//!//OR
+//!let framerate = DynFramerate::new_ndf(25);
+//!
+//!//Pass in framerate explicitly
+//!let converted1 = tc.convert_with_fr(&framerate);
+//!//Implicitly get framerate from destination type
+//!let converted2: Timecode<NDF<25>> = tc.convert();
+//!assert_eq!(converted1.to_string(), "01:02:15:19");
+//!assert_eq!(converted2.to_string(), "01:02:15:19");
 //!```
 //!
 //!If you need more control over the initial parsing, [`unvalidated`] can produce an intermediate
