@@ -1,3 +1,4 @@
+#![feature(generic_associated_types)]
 #![allow(dead_code)]
 //!This is a correct implementation of SMPTE timecodes used at
 //![`Discovery`](https://github.com/discoveryinc-cs)
@@ -143,7 +144,7 @@ impl FromStr for Timecode<DynFramerate> {
 }
 
 impl Timecode<DynFramerate> {
-    fn new_with_fr(s: &str, fr: &str) -> Result<Self, TimecodeValidationError> {
+    pub fn new_with_fr(s: &str, fr: &str) -> Result<Self, TimecodeValidationError> {
         let tc = unvalidated(s).ok_or(TimecodeValidationError::Unparsed)?;
         let d: DynFramerate = fr
             .parse()
@@ -169,22 +170,52 @@ pub trait ToFrames<FR> {
 ///
 ///let x: Timecode<NDF<30>> = "00:01:02:03".parse().unwrap();
 ///let y: Timecode<NDF<25>> = x.convert();
+///assert_eq!(y.to_string(), "00:01:02:02");
 ///
 ///let start: Timecode<DF2997> = "01:00:00;00".parse().unwrap();
-///let x: Timecode<DF2997> = "01:01:02;03".parse().unwrap();
+///let x: Timecode<DF2997> = "01:01:02;27".parse().unwrap();
 ///let y: Timecode<NDF2398> = x.convert_with_start(&start);
+///assert_eq!(y.to_string(), "01:01:02:20");
+///
+///let y_wrong: Timecode<NDF2398> = x.convert();
+///assert_eq!(y_wrong.to_string(), "01:01:02:21");
 ///```
 ///
-///If, instead, you have dynamic timecodes, try `convert_with_fr` or `convert_with_start_fr
+///If, instead, you have dynamic timecodes, try `convert_with_fr` or `convert_with_start_fr`
+///```
+///# use timecode::framerates::*;
+///# use timecode::{Timecode, Convert, unvalidated};
+///
+///let x: Timecode<DynFramerate> = "00:01:02:03@30".parse().unwrap();
+///let y: Timecode<DynFramerate> = x.convert_with_fr(&DynFramerate::new_ndf(25));
+///assert_eq!(y.to_string(), "00:01:02:02");
+///assert_eq!(y.framerate(), &DynFramerate::new_ndf(25));
+///
+///let start = Timecode::new_with_fr("01:00:00;00", "29.97").unwrap();
+///let x = Timecode::new_with_fr("01:01:02;27", "29.97").unwrap();
+///let y1 = x.convert_with_start_fr(&start, &DynFramerate::new_ndf(24));
+///assert_eq!(y1.to_string(), "01:01:02:20");
+///assert_eq!(y1.framerate().fr_ratio(), 24.0);
+///let y2: Timecode<NDF<24>> = x.convert_with_start(&start);
+///assert_eq!(y2.to_string(), "01:01:02:20");
+///assert_eq!(y2.framerate().fr_ratio(), 24.0);
+///assert_eq!(y1.framerate(), y2.framerate());
+///
+///let y_wrong: Timecode<NDF2398> = x.convert();
+///assert_eq!(y_wrong.to_string(), "01:01:02:21");
+///```
 pub trait Convert {
+    //TODO: When HKT/GATs are merged, make this a GAT
+    //type Output<DFR>;
     fn convert<DFR: Framerate + ConstFramerate>(&self) -> Timecode<DFR>;
     fn convert_with_fr<DFR: Framerate>(&self, framerate: &DFR) -> Timecode<DFR>;
     fn convert_with_start<DFR: Framerate + ConstFramerate>(&self, start: &Self) -> Timecode<DFR>;
     fn convert_with_start_fr<DFR: Framerate>(&self, start: &Self, framerate: &DFR)
         -> Timecode<DFR>;
 }
-
 impl<FR: Framerate> Convert for Timecode<FR> {
+    //type Output<DFR> = Timecode<DFR>;
+
     fn convert<DFR: Framerate + ConstFramerate>(&self) -> Timecode<DFR> {
         self.convert_with_fr(&DFR::new())
     }

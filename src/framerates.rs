@@ -120,6 +120,15 @@ where
     }
 }
 
+impl<F> PartialEq<F> for DynFramerate
+where
+    F: ConstFramerate + Framerate,
+{
+    fn eq(&self, other: &F) -> bool {
+        DynFramerate::from(other) == *self
+    }
+}
+
 impl<const FRAMES: FrameCount> TryFrom<DynFramerate> for NDF<FRAMES> {
     type Error = ();
 
@@ -152,7 +161,7 @@ pub struct DynFramerate {
 }
 
 impl DynFramerate {
-    const fn new(count: FrameCount, is_df: bool) -> Option<Self> {
+    pub const fn new(count: FrameCount, is_df: bool) -> Option<Self> {
         if is_df && !is_valid_df_count(count) {
             return None;
         }
@@ -162,13 +171,13 @@ impl DynFramerate {
 
     ///Shorthand for `Self::new(count, true)`
     #[allow(non_snake_case)]
-    const fn try_new_df(count: FrameCount) -> Option<Self> {
+    pub const fn try_new_df(count: FrameCount) -> Option<Self> {
         Self::new(count, true)
     }
 
     ///Shorthand for `Self::new(count, false)`
     #[allow(non_snake_case)]
-    const fn new_ndf(count: FrameCount) -> Self {
+    pub const fn new_ndf(count: FrameCount) -> Self {
         Self {
             count,
             is_df: false,
@@ -178,7 +187,7 @@ impl DynFramerate {
     ///Shorthand for `Self::new(count, true).unwrap()`
     ///PANIC: if count is not valid dropframe
     #[allow(non_snake_case)]
-    const fn new_df(count: FrameCount) -> Self {
+    pub const fn new_df(count: FrameCount) -> Self {
         if !is_valid_df_count(count) {
             panic!("Invalid dropframe framerate");
         }
