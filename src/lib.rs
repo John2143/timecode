@@ -1,8 +1,6 @@
 #![feature(generic_associated_types)]
 #![allow(dead_code)]
-//!This is a library to handle SMPTE timecodes. Most of the library is centered around
-//![`timecode::Timecode`]. `Timecode`s have methods for adding frames, adding other timecodes,
-//!converting to other framerates, inspecting, and comparing.
+//!This is a library to handle SMPTE timecodes. See [`Timecode`].
 //!
 //!# Quickstart
 //!
@@ -175,9 +173,10 @@ impl FromStr for Timecode<DynFramerate> {
 }
 
 impl Timecode<DynFramerate> {
-    pub fn new_with_fr(s: &str, fr: &str) -> Result<Self, TimecodeValidationError> {
-        let tc = unvalidated(s).ok_or(TimecodeValidationError::Unparsed)?;
-        let d: DynFramerate = fr
+    ///Construct a `Timecode<DynFramerate>` with timecode and famerate as string inputs
+    pub fn new_with_fr(timecode: &str, framerate: &str) -> Result<Self, TimecodeValidationError> {
+        let tc = unvalidated(timecode).ok_or(TimecodeValidationError::Unparsed)?;
+        let d: DynFramerate = framerate
             .parse()
             .map_err(|_| TimecodeValidationError::InvalidFramerate(None))?;
 
