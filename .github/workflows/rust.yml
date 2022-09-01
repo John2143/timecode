@@ -52,14 +52,50 @@ jobs:
     - name: Build
       run: echo ${{ github.sha }} > Release.txt
 
-    - name: Release
-      uses: softprops/action-gh-release@v1
+    - name: Make release
       if: github.ref == 'refs/heads/master'
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        files: |
-          timecode_js.zip
-          ./target/wheels/timecode-0.1.0-cp38-cp38-manylinux_2_28_x86_64.whl
-          Release.txt
+        tag_name: rel${{ github.sha }}
+        release_name: Release ${{ github.job }}
+        draft: false
+        prerelease: false
 
+    - name: Upload JS Assets
+      if: github.ref == 'refs/heads/master'
+      id: upload-release-asset-js
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: timecode_js.zip
+        asset_name: timecode_js.zip
+        asset_content_type: application/zip
+    - name: Upload python Assets
+      if: github.ref == 'refs/heads/master'
+      id: upload-release-asset-py
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./target/wheels/timecode-0.1.0-cp38-cp38-manylinux_2_28_x86_64.whl
+        asset_name: timecode.whl
+        asset_content_type: application/binary
+    - name: Upload release.txt
+      if: github.ref == 'refs/heads/master'
+      id: upload-release-asset-txt
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: Release.txt
+        asset_name: Release.txt
+        asset_content_type: application/txt
     #- name: Fuzz
       #run: cargo fuzz run fuzz_target_1
