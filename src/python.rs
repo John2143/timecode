@@ -74,8 +74,8 @@ impl Timecode {
         Ok(Self(self.0.convert_with_start_fr(&start.0, &d)))
     }
 
-    pub fn framerate(&self) -> String {
-        format!("{:.3}", self.0.framerate().fr_ratio())
+    pub fn framerate(&self) -> f32 {
+        self.0.framerate().fr_ratio()
     }
 
     pub fn is_dropframe(&self) -> bool {
