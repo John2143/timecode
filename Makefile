@@ -8,7 +8,7 @@ clean:
 
 
 python:
-	maturin build --features python --release
+	python3 -m maturin build --features python --release
 pydev: python
 	python3 -m pip install ./target/wheels/timecode-0.1.0-cp310-cp310-macosx_10_7_x86_64.whl --force-reinstall
 	python3 test.py
