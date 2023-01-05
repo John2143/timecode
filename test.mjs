@@ -1,4 +1,4 @@
-import { Timecode } from "./pkg/timecode.js";
+import { Timecode } from "./timecode_js_node/timecode.js";
 
 console.log("before")
 let x = new Timecode("00:01:02:03", "25");
