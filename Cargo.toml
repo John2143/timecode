@@ -20,7 +20,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 nom = "7.0.0"
-pyo3 = { version = "0.17.1", features = ["extension-module"], optional = true }
+pyo3 = { version = "0.18.1", features = ["extension-module"], optional = true }
 wasm-bindgen = { version = "0.2.82", optional = true }
 
 [dev-dependencies]
