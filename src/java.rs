@@ -10,9 +10,9 @@ use jni::objects::{JClass, JString};
 // This is just a pointer. We'll be returning it from our function. We
 // can't return one of the objects with lifetime information because the
 // lifetime checker won't let us.
-use jni::sys::{jlong, jstring};
+use jni::sys::{jint, jlong, jstring};
 
-use crate::{DynFramerate, Timecode};
+use crate::{DynFramerate, Timecode, ToFrames};
 
 type JavaTimecode = Timecode<DynFramerate>;
 
@@ -47,4 +47,62 @@ pub extern "system" fn Java_RTimecode_timecodeFree<'local>(
     tc_ptr: jlong,
 ) {
     let _ = unsafe { Box::from_raw(tc_ptr as *mut JavaTimecode) };
+}
+
+fn with_timecode<F, T>(tc_ptr: jlong, f: F) -> T
+where
+    F: FnOnce(&JavaTimecode) -> T,
+{
+    let tc = unsafe { Box::from_raw(tc_ptr as *mut JavaTimecode) };
+
+    let v = f(&tc);
+
+    Box::leak(tc);
+
+    v
+}
+
+#[no_mangle]
+pub extern "system" fn Java_RTimecode_timecode_1h<'local>(
+    _env: JNIEnv,
+    _class: JClass,
+    tc_ptr: jlong,
+) -> jint {
+    with_timecode(tc_ptr, |tc| tc.h().into())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_RTimecode_timecode_1m<'local>(
+    _env: JNIEnv,
+    _class: JClass,
+    tc_ptr: jlong,
+) -> jint {
+    with_timecode(tc_ptr, |tc| tc.m().into())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_RTimecode_timecode_1s<'local>(
+    _env: JNIEnv,
+    _class: JClass,
+    tc_ptr: jlong,
+) -> jint {
+    with_timecode(tc_ptr, |tc| tc.s().into())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_RTimecode_timecode_1f<'local>(
+    _env: JNIEnv,
+    _class: JClass,
+    tc_ptr: jlong,
+) -> jint {
+    with_timecode(tc_ptr, |tc| tc.f().try_into().unwrap())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_RTimecode_timecodeFrameCount<'local>(
+    _env: JNIEnv,
+    _class: JClass,
+    tc_ptr: jlong,
+) -> jint {
+    with_timecode(tc_ptr, |tc| tc.to_frame_count().try_into().unwrap())
 }

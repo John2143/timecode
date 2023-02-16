@@ -4,3 +4,4 @@ pkg
 
 java/libtimecode*
 java/*.class
+java/*.h

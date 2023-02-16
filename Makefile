@@ -9,7 +9,7 @@ clean:
 	rm -rf pkg
 	rm -rf java/*.class
 	rm -rf java/libtimecode.*
-
+	rm -rf java/*.h
 
 python:
 	python3 -m maturin build --features python --release
@@ -33,4 +33,5 @@ java:
 	cp ./target/debug/libtimecode.* java/
 	rm -rf java/*.class
 	javac java/test.java
+	javac -h . java/test.java && mv *.h java
 	cd java; java -cp . RTimecode
