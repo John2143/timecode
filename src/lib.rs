@@ -82,6 +82,8 @@
 use std::{convert::TryInto, fmt::Display, str::FromStr};
 
 pub mod framerates;
+#[cfg(feature = "jni")]
+pub mod java;
 #[cfg(feature = "javascript")]
 pub mod javascript;
 pub mod parser;

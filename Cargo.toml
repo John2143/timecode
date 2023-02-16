@@ -13,6 +13,7 @@ repository = "https://github.com/John2143/timecode"
 default=[]
 javascript=["wasm-bindgen"]
 python=["pyo3"]
+java=["jni"]
 
 [lib]
 name = "timecode"
@@ -22,6 +23,7 @@ crate-type = ["cdylib", "rlib"]
 nom = "7.0.0"
 pyo3 = { version = "0.17.1", features = ["extension-module"], optional = true }
 wasm-bindgen = { version = "0.2.82", optional = true }
+jni = { version = "0.21.0", optional = true }
 
 [dev-dependencies]
 smallstr = "0.3.0"
