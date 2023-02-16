@@ -7,7 +7,7 @@ default: node python
 clean:
 	rm -rf target
 	rm -rf pkg
-	rm -rf java/HelloWorld.class
+	rm -rf java/*.class
 	rm -rf java/libtimecode.*
 
 
@@ -31,5 +31,6 @@ web:
 java:
 	cargo build --features jni
 	cp ./target/debug/libtimecode.* java/
+	rm -rf java/*.class
 	javac java/test.java
-	cd java; java -cp . HelloWorld
+	cd java; java -cp . RTimecode
