@@ -12,7 +12,7 @@ class RTimecode {
     }
 
     public static void main(String[] args) {
-        Timecode output = new Timecode("10:01:00:03", "29.97");
+        Timecode output = new Timecode("00:01:00:00", "29.97");
         //System.out.println(output);
         System.out.println(output.h());
         System.out.println(output.m());

@@ -1,5 +1,12 @@
 import { Timecode } from "./timecode_js_node/timecode.js";
 
+let tt = new Timecode("00:01:00:05", "25");
+console.log(tt.convert_to("29.97").frame_count());
+console.log(tt.convert_to("30").frame_count());
+
+console.log(Timecode.from_frames(18000, "29.97").tc());
+console.log(Timecode.from_frames(18000, "30").tc());
+
 console.log("before")
 let x = new Timecode("00:01:02:03", "25");
 console.log("after")
