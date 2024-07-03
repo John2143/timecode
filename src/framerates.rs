@@ -30,6 +30,7 @@ pub type NDF25 = NDF<25>;
 pub type NDF50 = NDF<25>;
 ///23.98 NDF like 24fps
 pub type NDF2398 = NDF<24>;
+pub type NDF4796 = NDF<48>;
 
 ///dropframe timecodes must be multiples of 29.97, so check that the rounded value is divisible by
 ///30

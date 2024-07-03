@@ -1,10 +1,6 @@
 import { Timecode } from "./timecode_js_node/timecode.js";
 
 
-let tc = new Timecode("00:01:25:41", "47.96");
-let ntc = tc.convert_to("50");
-console.log(ntc.tc());
-
 console.log("before")
 let x = new Timecode("00:01:02:03", "25");
 console.log("after")
@@ -29,3 +25,8 @@ try{
 }
 
 console.log((new Timecode("01:00:00:04", "60")).frame_count())
+
+
+let tc = new Timecode("00:01:25:41", "47.96");
+let ntc = tc.convert_to("50");
+console.log(ntc.tc());
