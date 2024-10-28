@@ -1,5 +1,5 @@
 [package]
-name = "timecode"
+name = "timecodes"
 description = "SMPTE Timecode library"
 version = "10.1.0"
 authors = ["John Schmidt <john@john2143.com>"]
