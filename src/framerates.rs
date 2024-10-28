@@ -260,7 +260,8 @@ impl std::str::FromStr for DynFramerate {
             const SPECIAL: &[(f64, DynFramerate)] = &[
                 (23.98, DynFramerate::new_ndf(24)),
                 (23.97, DynFramerate::new_ndf(24)),
-                (47.96, DynFramerate::new_ndf(48)),
+                //(47.96, DynFramerate::new_ndf(48)),
+                //(47.95, DynFramerate::new_ndf(48)),
                 (59.97, DynFramerate::new_df(60)),
                 (29.97, DynFramerate::new_df(30)),
             ];
@@ -329,6 +330,9 @@ mod read_dyn_framerates {
         assert_eq!(s, DynFramerate::new_ndf(24));
 
         let s: DynFramerate = "47.96".parse().unwrap();
+        assert_eq!(s, DynFramerate::new_ndf(48));
+
+        let s: DynFramerate = "47.95".parse().unwrap();
         assert_eq!(s, DynFramerate::new_ndf(48));
     }
 
