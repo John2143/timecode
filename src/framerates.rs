@@ -21,6 +21,7 @@ pub trait ConstFramerate {
 pub type DF2997 = DF<30>;
 ///59.94 DF (NTSC)
 pub type DF5994 = DF<60>;
+
 ///30 NDF
 pub type NDF30 = NDF<30>;
 ///25 NDF (PAL)
@@ -29,6 +30,7 @@ pub type NDF25 = NDF<25>;
 pub type NDF50 = NDF<25>;
 ///23.98 NDF like 24fps
 pub type NDF2398 = NDF<24>;
+pub type NDF4796 = NDF<48>;
 
 ///dropframe timecodes must be multiples of 29.97, so check that the rounded value is divisible by
 ///30
@@ -257,6 +259,9 @@ impl std::str::FromStr for DynFramerate {
 
             const SPECIAL: &[(f64, DynFramerate)] = &[
                 (23.98, DynFramerate::new_ndf(24)),
+                (23.97, DynFramerate::new_ndf(24)),
+                //(47.96, DynFramerate::new_ndf(48)),
+                //(47.95, DynFramerate::new_ndf(48)),
                 (59.97, DynFramerate::new_df(60)),
                 (29.97, DynFramerate::new_df(30)),
             ];
@@ -269,9 +274,15 @@ impl std::str::FromStr for DynFramerate {
             }
 
             //if we are close to a multiple of 29.97, use dropframe
-            let k = float / 29.97;
+            let k = float / (30.0 / 1.001);
             if (k - k.round()).abs() < EPISILON {
                 return Ok(Self::try_new_df((k.round() as FrameCount) * 30).unwrap());
+            }
+
+            //if we are close to a multiple of 23.98, use ndf multiples of 24
+            let k = float / (24.0 / 1.001);
+            if (k - k.round()).abs() < EPISILON {
+                return Ok(Self::new_ndf((k.round() as FrameCount) * 24));
             }
         }
 
@@ -314,9 +325,27 @@ mod read_dyn_framerates {
     }
 
     #[test]
+    fn read_fr_2398s() {
+        let s: DynFramerate = "23.98".parse().unwrap();
+        assert_eq!(s, DynFramerate::new_ndf(24));
+
+        let s: DynFramerate = "47.96".parse().unwrap();
+        assert_eq!(s, DynFramerate::new_ndf(48));
+
+        let s: DynFramerate = "47.95".parse().unwrap();
+        assert_eq!(s, DynFramerate::new_ndf(48));
+    }
+
+    #[test]
     fn read_fr_high_df() {
         let s: DynFramerate = "239.76".parse().unwrap();
         assert_eq!(s, DynFramerate::new_df(240));
+    }
+
+    #[test]
+    fn read_fr_high_ndf_2398() {
+        let s: DynFramerate = "95.90".parse().unwrap();
+        assert_eq!(s, DynFramerate::new_ndf(96));
     }
 }
 
@@ -334,6 +363,7 @@ mod construct_framerates {
         let _ = DynFramerate::new_ndf(60);
         let _ = DynFramerate::new_ndf(25);
         let _ = DynFramerate::new_ndf(50);
+        let _ = DynFramerate::new_ndf(24);
     }
 
     #[test]
