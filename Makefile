@@ -5,6 +5,10 @@ default: node python
 clean:
 	rm -rf target
 	rm -rf pkg
+	rm -rf *.zip
+	rm -rf timecode_js_node
+	rm -rf timecode_js_web
+
 
 
 python:
