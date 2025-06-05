@@ -5,8 +5,8 @@ use nom::{
     character::complete::{char, satisfy},
     combinator::map_res,
     error::make_error,
-    sequence::{pair, tuple},
-    IResult,
+    sequence::pair,
+    IResult, Parser,
 };
 
 use crate::FrameCount;
@@ -70,24 +70,24 @@ fn from_dec(input: &str) -> Result<u64, std::num::ParseIntError> {
 ///This may return an invalid value for seconds, minutes, or frames, so it is up to the user to
 ///validate after receiving this input.
 fn tc_digits<const SIZE: usize>(input: &str) -> IResult<&str, u64> {
-    map_res(take_while_m_n(2, SIZE, |c: char| c.is_digit(10)), from_dec)(input)
+    map_res(take_while_m_n(2, SIZE, |c: char| c.is_digit(10)), from_dec).parse(input)
 }
 
 fn tc_seperator(input: &str) -> IResult<&str, Seperator> {
     //TODO get rid of the match statement somehow
-    let (input, sep) = satisfy(|c| c == ';' || c == ':')(input)?;
+    let (input, sep) = satisfy(|c| c == ';' || c == ':').parse(input)?;
 
     Ok((input, sep.try_into().unwrap()))
 }
 
 pub fn timecode_nom(input: &str) -> IResult<&str, UnvalidatedTC> {
-    let parse_timecode = tuple((
+    let parse_timecode = (
         pair(tc_digits::<3>, char(':')),
         pair(tc_digits::<3>, char(':')),
         pair(tc_digits::<3>, tc_seperator),
         //up to 10 digits for frames: TODO not to spec?
         tc_digits::<10>,
-    ))(input)?;
+    ).parse(input)?;
 
     //destructure into more readable format
     let (input, ((h, _), (m, _), (s, sep), f)) = parse_timecode;
