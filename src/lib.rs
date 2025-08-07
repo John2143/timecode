@@ -93,6 +93,7 @@ pub mod validate;
 
 pub use framerates::*;
 pub use parser::unvalidated;
+
 pub use validate::ValidateableFramerate;
 
 use validate::TimecodeValidationError;
