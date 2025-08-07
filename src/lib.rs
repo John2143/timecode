@@ -87,6 +87,8 @@ pub mod javascript;
 pub mod parser;
 #[cfg(feature = "python")]
 pub mod python;
+#[cfg(feature = "json")]
+pub mod json;
 pub mod validate;
 
 pub use framerates::*;
