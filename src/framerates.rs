@@ -283,11 +283,7 @@ impl std::str::FromStr for DynFramerate {
 
 impl std::fmt::Display for DynFramerate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.is_df {
-            write!(f, "{};{}", self.count, self.fr_denom())
-        } else {
-            write!(f, "{}:{}", self.count, self.fr_denom())
-        }
+        write!(f, "{:.2}", self.fr_ratio())
     }
 }
 

@@ -173,6 +173,24 @@ impl FromStr for Timecode<DynFramerate> {
         tc.validate_with_fr(&d)
     }
 }
+//
+// impl<FR> FromStr for Timecode<FR> where FR: ConstFramerate + validate::ValidateableFramerate {
+//     type Err = TimecodeValidationError;
+//
+//     fn from_str(s: &str) -> Result<Self, Self::Err> {
+//         let mut at = s.split("@");
+//         let tc_part = at.next().ok_or(TimecodeValidationError::Unparsed)?;
+//         let fr_part = at.next().ok_or(TimecodeValidationError::Unparsed)?;
+//         let tc = unvalidated(tc_part).ok_or(TimecodeValidationError::Unparsed)?;
+//
+//         // let d: DynFramerate = fr_part
+//             // .parse()
+//             // .map_err(|_| TimecodeValidationError::InvalidFramerate(None))?;
+//
+//         tc.validate_with_fr(&FR::new())
+//     }
+// }
+
 
 impl Timecode<DynFramerate> {
     ///Construct a `Timecode<DynFramerate>` with timecode and famerate as string inputs
