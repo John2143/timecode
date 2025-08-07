@@ -28,6 +28,8 @@
         pkg-config
       ];
       buildInputs = with pkgs; [
+        maturin
+        python3
         bacon
         cargo
         cargo-edit

@@ -2,7 +2,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
 #[pymodule]
-fn timecode(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+fn timecode(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Timecode>()?;
     Ok(())
 }
@@ -19,10 +19,7 @@ impl Timecode {
     #[new]
     pub fn new(s: &str, fr: &str) -> PyResult<Timecode> {
         let d: DynFramerate = fr.parse().map_err(|e: &str| PyValueError::new_err(e))?;
-        match TC::new_with_fr(s, fr) {
-            Ok(tc) => return Ok(Timecode(tc)),
-            Err(_) => {}
-        };
+        if let Ok(tc) = TC::new_with_fr(s, fr) { return Ok(Timecode(tc)) };
 
         let frames: FrameCount = match s.parse() {
             Ok(frames) => frames,
