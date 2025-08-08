@@ -1,0 +1,21 @@
+name: Create new release
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  id-token: write
+  contents: write
+
+env:
+  REPO_TYPE: "rust"
+
+jobs:
+  create-release:
+    uses: discovery-digital/neo-common-github/.github/workflows/release_rust_library.yaml@master
+    with:
+      runner: timecode-scale-set
+    # inheriting GH_TOKEN
+    secrets: inherit

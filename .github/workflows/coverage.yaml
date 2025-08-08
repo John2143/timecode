@@ -1,0 +1,99 @@
+name: Coverage Test
+
+concurrency:
+  group: coverage-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  run-coverage:
+    runs-on: neo-common-rs-scale-set
+    env:
+      role: "arn:aws:iam::767397873409:role/gha-tf-role"
+      registry: "767397873409.dkr.ecr.us-east-1.amazonaws.com"
+      codeartifact_registry: "rust"
+      codeartifact_domain: "wbd-msc-rust"
+      codeartifact_domain_owner: "767397873409"
+
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-east-1
+          role-to-assume: ${{ env.role }}
+
+      - name: Configure cargo for CodeArtifact login
+        run: |
+          mkdir -p .cargo
+          cat <<EOF > .cargo/config.toml
+          [registries.${{ env.codeartifact_domain }}-${{ env.codeartifact_registry }}]
+          index = "sparse+https://${{ env.codeartifact_domain }}-${{ env.codeartifact_domain_owner }}.d.codeartifact.us-east-1.amazonaws.com/cargo/${{ env.codeartifact_registry }}/"
+          credential-provider = "cargo:token-from-stdout aws codeartifact get-authorization-token --domain ${{ env.codeartifact_domain }} --domain-owner ${{ env.codeartifact_domain_owner }} --region us-east-1 --query authorizationToken --output text"
+
+          [registry]
+          default = "${{ env.codeartifact_domain }}-${{ env.codeartifact_registry }}"
+
+          [source.crates-io]
+          replace-with = "${{ env.codeartifact_domain }}-${{ env.codeartifact_registry }}"
+          EOF
+
+      - name: Install cargo-llvm-cov
+        run: |
+          cargo install cargo-llvm-cov
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Run cargo llvm-cov
+        id: coverage
+        run: |
+          cargo llvm-cov clean --workspace
+          cargo llvm-cov --all-features > coverage.txt
+
+      - name: Post coverage result to PR
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const coverage = fs.readFileSync('coverage.txt', 'utf8');
+
+            const prNumber = context.payload.pull_request.number;
+            const commentBody = `
+              ### Code Coverage Report
+              Code Coverage Report
+              \`\`\`plaintext
+              ${coverage}
+              \`\`\`
+            `;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              ...context.repo,
+              issue_number: prNumber,
+            });
+
+            const botComment = comments.find(comment => 
+              comment.user.login === 'github-actions[bot]' && 
+              comment.body.includes('### Code Coverage Report')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                ...context.repo,
+                comment_id: botComment.id,
+                body: commentBody,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                ...context.repo,
+                issue_number: prNumber,
+                body: commentBody,
+              });
+            }
+

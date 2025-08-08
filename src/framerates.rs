@@ -38,9 +38,11 @@ const fn is_valid_df_count(frames: FrameCount) -> bool {
 
 ///Dropframe timecode, with framerate stored at compile-time. Must be multiple of 30.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "json", derive(::serde::Serialize, ::serde::Deserialize))]
 pub struct DF<const FRAMES: FrameCount>;
 ///Non-drop timecode, with framerate stored at compile-time.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "json", derive(::serde::Serialize, ::serde::Deserialize))]
 pub struct NDF<const FRAMES: FrameCount>;
 
 impl<const FRAMES: FrameCount> ConstFramerate for NDF<FRAMES> {
@@ -278,6 +280,13 @@ impl std::str::FromStr for DynFramerate {
         Err("No known dropframe timecode")
     }
 }
+
+impl std::fmt::Display for DynFramerate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:.2}", self.fr_ratio())
+    }
+}
+
 
 #[cfg(test)]
 mod read_dyn_framerates {
