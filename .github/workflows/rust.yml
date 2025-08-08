@@ -85,6 +85,12 @@ jobs:
         asset_path: timecode_js_web.zip
         asset_name: timecode_js_web.zip
         asset_content_type: application/zip
+    - name: find path of python asset
+      if: github.ref == 'refs/heads/master'
+      id: find-python-asset
+      run: |
+        echo "python asset path: $(find ./target/wheels -name 'timecode*manylinux*.whl')"
+        echo "::set-output name=python_asset_path::$(find ./target/wheels -name 'timecode*manylinux*.whl')"
     - name: Upload python Assets
       if: github.ref == 'refs/heads/master'
       id: upload-release-asset-py
@@ -93,7 +99,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./target/wheels/timecode-0.1.0-cp38-cp38-manylinux_2_28_x86_64.whl
+        asset_path: ${{ steps.find-python-asset.outputs.python_asset_path }}
         asset_name: timecode.whl
         asset_content_type: application/binary
     - name: Upload release.txt
