@@ -94,6 +94,7 @@ pub mod validate;
 pub use framerates::*;
 pub use parser::unvalidated;
 
+use schemars::JsonSchema;
 pub use validate::ValidateableFramerate;
 
 use validate::TimecodeValidationError;
@@ -106,6 +107,7 @@ pub type FrameCount = u32;
 pub struct Frames(pub FrameCount);
 
 #[derive(Copy, Debug, Eq, PartialEq, Clone)]
+#[cfg_attr(feature = "json", derive(JsonSchema))]
 pub struct Timecode<FR> {
     h: u8,
     m: u8,
