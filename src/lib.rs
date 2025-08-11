@@ -94,6 +94,7 @@ pub mod validate;
 pub use framerates::*;
 pub use parser::unvalidated;
 
+#[cfg(feature = "json")]
 use schemars::JsonSchema;
 pub use validate::ValidateableFramerate;
 

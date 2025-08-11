@@ -1,3 +1,4 @@
+#[cfg(feature = "json")]
 use schemars::JsonSchema;
 
 use crate::FrameCount;
