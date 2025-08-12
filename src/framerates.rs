@@ -1,3 +1,6 @@
+#[cfg(feature = "json")]
+use schemars::JsonSchema;
+
 use crate::FrameCount;
 use std::convert::TryFrom;
 
@@ -38,11 +41,11 @@ const fn is_valid_df_count(frames: FrameCount) -> bool {
 
 ///Dropframe timecode, with framerate stored at compile-time. Must be multiple of 30.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "json", derive(::serde::Serialize, ::serde::Deserialize))]
+#[cfg_attr(feature = "json", derive(::serde::Serialize, ::serde::Deserialize, JsonSchema))]
 pub struct DF<const FRAMES: FrameCount>;
 ///Non-drop timecode, with framerate stored at compile-time.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "json", derive(::serde::Serialize, ::serde::Deserialize))]
+#[cfg_attr(feature = "json", derive(::serde::Serialize, ::serde::Deserialize, JsonSchema))]
 pub struct NDF<const FRAMES: FrameCount>;
 
 impl<const FRAMES: FrameCount> ConstFramerate for NDF<FRAMES> {
